@@ -45,9 +45,8 @@ generate-pdf.mjs
 # HTML exports
 *.html
 
-# Images (logos are embedded or referenced externally)
+# Images (keep mcp-logo.png, it's go:embed in main.go)
 images/
-mcp-logo.png
 mcp-logo.svg
 gtm-logo.png
 
