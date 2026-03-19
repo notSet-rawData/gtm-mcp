@@ -27,8 +27,10 @@ RUN apk add --no-cache ca-certificates tzdata
 # Copy binary from builder
 COPY --from=builder /app/gtm-mcp-server .
 
-# Create non-root user
-RUN adduser -D -g '' appuser
+# Create non-root user and data directory
+RUN adduser -D -g '' appuser && \
+    mkdir -p /app/data && \
+    chown appuser:appuser /app/data
 USER appuser
 
 # Expose port

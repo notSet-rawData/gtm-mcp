@@ -153,7 +153,7 @@ Legacy tool names (e.g. "list_accounts", "tag") are supported via backward compa
 		}
 
 		// Quick SQLite check: try to open and ping the database
-		db, err := sql.Open("sqlite", ".gtm-tokens.db")
+		db, err := sql.Open("sqlite", "data/gtm-tokens.db")
 		if err != nil {
 			status["status"] = "degraded"
 			status["token_store"] = "error: " + err.Error()
@@ -205,7 +205,7 @@ Legacy tool names (e.g. "list_accounts", "tag") are supported via backward compa
 		// Set up OAuth with encrypted token store
 		encryptionKey := auth.DeriveKey(cfg.JWTSecret)
 		var err error
-		tokenStore, err = store.NewSQLiteTokenStore(".gtm-tokens.db", encryptionKey)
+		tokenStore, err = store.NewSQLiteTokenStore("data/gtm-tokens.db", encryptionKey)
 		if err != nil {
 			logger.Error("failed to initialize sqlite token store", "error", err)
 			os.Exit(1)
