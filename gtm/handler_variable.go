@@ -2,7 +2,6 @@ package gtm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -20,7 +19,8 @@ type VariableToolInput struct {
 	// Fields for create/update:
 	Name           string `json:"name,omitempty" jsonschema:"description:Variable name (required for create/update)"`
 	Type           string `json:"type,omitempty" jsonschema:"description:Variable type e.g. c (Constant), v (Data Layer), k (Cookie), jsm (Custom JavaScript), u (URL) (required for create/update)"`
-	ParametersJSON string `json:"parametersJson,omitempty" jsonschema:"description:Variable parameters as JSON array (required for most types)"`
+	Parameter      []Parameter `json:"parameter,omitempty" jsonschema:"description:Variable parameters as array of objects. Each: {type, key, value}. Supports nested list/map."`
+	ParametersJSON string      `json:"parametersJson,omitempty" jsonschema:"description:DEPRECATED: Variable parameters as JSON string. Use parameter array instead."`
 	Notes          string `json:"notes,omitempty" jsonschema:"description:Variable notes (optional)"`
 	// Fields for delete:
 	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
@@ -86,11 +86,9 @@ func handleVariableCreate(ctx context.Context, input VariableToolInput) (*mcp.Ca
 	tCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	var params []Parameter
-	if input.ParametersJSON != "" {
-		if err := json.Unmarshal([]byte(input.ParametersJSON), &params); err != nil {
-			return nil, nil, fmt.Errorf("invalid parametersJson: %w", err)
-		}
+	params, err := resolveParameters(input.Parameter, input.ParametersJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	variableInput := &VariableInput{
@@ -135,11 +133,9 @@ func handleVariableUpdate(ctx context.Context, input VariableToolInput) (*mcp.Ca
 
 	path := BuildVariablePath(wc.AccountID, wc.ContainerID, wc.WorkspaceID, input.VariableID)
 
-	var params []Parameter
-	if input.ParametersJSON != "" {
-		if err := json.Unmarshal([]byte(input.ParametersJSON), &params); err != nil {
-			return nil, nil, fmt.Errorf("invalid parametersJson: %w", err)
-		}
+	params, err := resolveParameters(input.Parameter, input.ParametersJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	variableInput := &VariableInput{

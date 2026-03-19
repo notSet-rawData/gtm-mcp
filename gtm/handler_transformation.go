@@ -2,7 +2,6 @@ package gtm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -20,7 +19,8 @@ type TransformationToolInput struct {
 	// Fields for create/update:
 	Name           string `json:"name,omitempty" jsonschema:"description:Transformation name (required for create/update)"`
 	Type           string `json:"type,omitempty" jsonschema:"description:Transformation type: tf_exclude_params, tf_allow_params, or tf_augment_event (required for create)"`
-	ParametersJSON string `json:"parametersJson,omitempty" jsonschema:"description:Transformation parameters as JSON array (optional)"`
+	Parameter      []Parameter `json:"parameter,omitempty" jsonschema:"description:Transformation parameters as array of objects. Each: {type, key, value}."`
+	ParametersJSON string      `json:"parametersJson,omitempty" jsonschema:"description:DEPRECATED: Transformation parameters as JSON string. Use parameter array instead."`
 	Notes          string `json:"notes,omitempty" jsonschema:"description:Transformation notes (optional)"`
 	// Fields for delete:
 	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
@@ -86,11 +86,9 @@ func handleTransformationCreate(ctx context.Context, input TransformationToolInp
 	tCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	var params []Parameter
-	if input.ParametersJSON != "" {
-		if err := json.Unmarshal([]byte(input.ParametersJSON), &params); err != nil {
-			return nil, nil, fmt.Errorf("invalid parametersJson: %w", err)
-		}
+	params, err := resolveParameters(input.Parameter, input.ParametersJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	transformationInput := &TransformationInput{
@@ -132,11 +130,9 @@ func handleTransformationUpdate(ctx context.Context, input TransformationToolInp
 
 	path := BuildTransformationPath(wc.AccountID, wc.ContainerID, wc.WorkspaceID, input.TransformationID)
 
-	var params []Parameter
-	if input.ParametersJSON != "" {
-		if err := json.Unmarshal([]byte(input.ParametersJSON), &params); err != nil {
-			return nil, nil, fmt.Errorf("invalid parametersJson: %w", err)
-		}
+	params, err := resolveParameters(input.Parameter, input.ParametersJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	transformationInput := &TransformationInput{

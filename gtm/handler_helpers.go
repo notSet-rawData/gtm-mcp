@@ -2,11 +2,31 @@ package gtm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// resolveParameters returns parameters from either direct array or JSON string.
+// Priority: direct array > JSON string > nil.
+// This supports both formats that Claude might send:
+//   - "parameter": [{...}] (array, preferred)
+//   - "parametersJson": "[{...}]" (JSON string, backward compat)
+func resolveParameters(direct []Parameter, jsonStr string) ([]Parameter, error) {
+	if len(direct) > 0 {
+		return direct, nil
+	}
+	if jsonStr != "" {
+		var params []Parameter
+		if err := json.Unmarshal([]byte(jsonStr), &params); err != nil {
+			return nil, fmt.Errorf("invalid parametersJson: %w", err)
+		}
+		return params, nil
+	}
+	return nil, nil
+}
 
 // WorkspaceContext holds a validated workspace path and an authenticated GTM client.
 type WorkspaceContext struct {

@@ -22,7 +22,8 @@ type TagToolInput struct {
 	Type               string   `json:"type,omitempty" jsonschema:"description:Tag type e.g. gaawe (GA4), html (Custom HTML) (required for create/update)"`
 	FiringTriggerIDs   []string `json:"firingTriggerIds,omitempty" jsonschema:"description:Trigger IDs that fire this tag (required for create/update)"`
 	BlockingTriggerIDs []string `json:"blockingTriggerIds,omitempty" jsonschema:"description:Trigger IDs that block this tag (optional)"`
-	ParametersJSON     string   `json:"parametersJson,omitempty" jsonschema:"description:Tag parameters as JSON array (optional). Each parameter: {type, key, value}"`
+	Parameter          []Parameter `json:"parameter,omitempty" jsonschema:"description:Tag parameters as array of objects. Each: {type, key, value}. Supports nested list/map."`
+	ParametersJSON     string      `json:"parametersJson,omitempty" jsonschema:"description:DEPRECATED: Tag parameters as JSON string. Use parameter array instead."`
 	SetupTagJSON       string   `json:"setupTagJson,omitempty" jsonschema:"description:Setup tag sequencing as JSON array (optional). Each element: {tagName, stopOnSetupFailure}"`
 	TeardownTagJSON    string   `json:"teardownTagJson,omitempty" jsonschema:"description:Teardown tag sequencing as JSON array (optional). Each element: {tagName, stopTeardownOnFailure}"`
 	Notes              string   `json:"notes,omitempty" jsonschema:"description:Tag notes (optional)"`
@@ -91,11 +92,9 @@ func handleTagCreate(ctx context.Context, input TagToolInput) (*mcp.CallToolResu
 	tCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	var params []Parameter
-	if input.ParametersJSON != "" {
-		if err := json.Unmarshal([]byte(input.ParametersJSON), &params); err != nil {
-			return nil, nil, err
-		}
+	params, err := resolveParameters(input.Parameter, input.ParametersJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	var setupTags []SetupTagInput
@@ -156,11 +155,9 @@ func handleTagUpdate(ctx context.Context, input TagToolInput) (*mcp.CallToolResu
 
 	path := BuildTagPath(wc.AccountID, wc.ContainerID, wc.WorkspaceID, input.TagID)
 
-	var params []Parameter
-	if input.ParametersJSON != "" {
-		if err := json.Unmarshal([]byte(input.ParametersJSON), &params); err != nil {
-			return nil, nil, err
-		}
+	params, err := resolveParameters(input.Parameter, input.ParametersJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	var setupTags []SetupTagInput

@@ -2,7 +2,6 @@ package gtm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -21,7 +20,8 @@ type ClientToolInput struct {
 	Name           string `json:"name,omitempty" jsonschema:"description:Client name (required for create/update)"`
 	Type           string `json:"type,omitempty" jsonschema:"description:Client type e.g. __ga4 (GA4), __googtag (Google tag) (required for create/update)"`
 	Priority       int64  `json:"priority,omitempty" jsonschema:"description:Client priority (optional, higher runs first)"`
-	ParametersJSON string `json:"parametersJson,omitempty" jsonschema:"description:Client parameters as JSON array (optional)"`
+	Parameter      []Parameter `json:"parameter,omitempty" jsonschema:"description:Client parameters as array of objects. Each: {type, key, value}."`
+	ParametersJSON string      `json:"parametersJson,omitempty" jsonschema:"description:DEPRECATED: Client parameters as JSON string. Use parameter array instead."`
 	Notes          string `json:"notes,omitempty" jsonschema:"description:Client notes (optional)"`
 	// Fields for delete:
 	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
@@ -87,11 +87,9 @@ func handleClientCreate(ctx context.Context, input ClientToolInput) (*mcp.CallTo
 	tCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	var params []Parameter
-	if input.ParametersJSON != "" {
-		if err := json.Unmarshal([]byte(input.ParametersJSON), &params); err != nil {
-			return nil, nil, fmt.Errorf("invalid parametersJson: %w", err)
-		}
+	params, err := resolveParameters(input.Parameter, input.ParametersJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	clientInput := &ClientInput{
@@ -134,11 +132,9 @@ func handleClientUpdate(ctx context.Context, input ClientToolInput) (*mcp.CallTo
 
 	path := BuildClientPath(wc.AccountID, wc.ContainerID, wc.WorkspaceID, input.ClientID)
 
-	var params []Parameter
-	if input.ParametersJSON != "" {
-		if err := json.Unmarshal([]byte(input.ParametersJSON), &params); err != nil {
-			return nil, nil, fmt.Errorf("invalid parametersJson: %w", err)
-		}
+	params, err := resolveParameters(input.Parameter, input.ParametersJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	clientInput := &ClientInput{
