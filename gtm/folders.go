@@ -63,6 +63,82 @@ func (c *Client) GetFolderEntities(ctx context.Context, accountID, containerID, 
 	return entities, nil
 }
 
+// CreateFolder creates a new folder in a workspace.
+func (c *Client) CreateFolder(ctx context.Context, accountID, containerID, workspaceID, name, notes string) (*Folder, error) {
+	parent := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s", accountID, containerID, workspaceID)
+
+	folder := &tagmanager.Folder{
+		Name:  name,
+		Notes: notes,
+	}
+
+	result, err := c.Service.Accounts.Containers.Workspaces.Folders.Create(parent, folder).Context(ctx).Do()
+	if err != nil {
+		return nil, mapGoogleError(err)
+	}
+
+	return &Folder{
+		FolderID: result.FolderId,
+		Name:     result.Name,
+		Path:     result.Path,
+		Notes:    result.Notes,
+	}, nil
+}
+
+// UpdateFolder updates a folder's name and/or notes.
+func (c *Client) UpdateFolder(ctx context.Context, accountID, containerID, workspaceID, folderID, name, notes string) (*Folder, error) {
+	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/folders/%s",
+		accountID, containerID, workspaceID, folderID)
+
+	folder := &tagmanager.Folder{}
+	if name != "" {
+		folder.Name = name
+	}
+	if notes != "" {
+		folder.Notes = notes
+	}
+
+	result, err := c.Service.Accounts.Containers.Workspaces.Folders.Update(path, folder).Context(ctx).Do()
+	if err != nil {
+		return nil, mapGoogleError(err)
+	}
+
+	return &Folder{
+		FolderID: result.FolderId,
+		Name:     result.Name,
+		Path:     result.Path,
+		Notes:    result.Notes,
+	}, nil
+}
+
+// MoveEntitiesToFolder moves tags, triggers, and/or variables into a folder.
+func (c *Client) MoveEntitiesToFolder(ctx context.Context, accountID, containerID, workspaceID, folderID string, tagIDs, triggerIDs, variableIDs []string) error {
+	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/folders/%s",
+		accountID, containerID, workspaceID, folderID)
+
+	call := c.Service.Accounts.Containers.Workspaces.Folders.MoveEntitiesToFolder(path, &tagmanager.Folder{})
+
+	if len(tagIDs) > 0 {
+		call = call.TagId(tagIDs...)
+	}
+	if len(triggerIDs) > 0 {
+		call = call.TriggerId(triggerIDs...)
+	}
+	if len(variableIDs) > 0 {
+		call = call.VariableId(variableIDs...)
+	}
+
+	return call.Context(ctx).Do()
+}
+
+// DeleteFolder deletes a folder from a workspace.
+func (c *Client) DeleteFolder(ctx context.Context, accountID, containerID, workspaceID, folderID string) error {
+	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/folders/%s",
+		accountID, containerID, workspaceID, folderID)
+
+	return c.Service.Accounts.Containers.Workspaces.Folders.Delete(path).Context(ctx).Do()
+}
+
 func toFolders(folders []*tagmanager.Folder) []Folder {
 	result := make([]Folder, 0, len(folders))
 	for _, f := range folders {

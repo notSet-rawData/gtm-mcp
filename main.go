@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	_ "embed"
+	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,13 +19,18 @@ import (
 	"gtm-mcp-server/config"
 	"gtm-mcp-server/gtm"
 	"gtm-mcp-server/middleware"
+	"gtm-mcp-server/store"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	_ "modernc.org/sqlite"
 )
+
+//go:embed mcp-logo.png
+var mcpLogoPNG []byte
 
 const (
 	serverName    = "gtm-mcp-server"
-	serverVersion = "1.4.0"
+	serverVersion = "1.0.0"
 )
 
 func main() {
@@ -46,17 +55,74 @@ func main() {
 		slog.SetDefault(logger)
 	}
 
+	// Parse flags
+	stdioMode := flag.Bool("stdio", false, "Run in stdio mode (no HTTP server, no auth required)")
+	flag.Parse()
+
 	// Create MCP server
+	logoDataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(mcpLogoPNG)
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    serverName,
+		Title:   "NotSet GTM MCP Server",
 		Version: serverVersion,
-	}, nil)
+		Icons: []mcp.Icon{
+			{
+				Source:   logoDataURI,
+				MIMEType: "image/png",
+			},
+		},
+	}, &mcp.ServerOptions{
+		Instructions: `This server exposes a SINGLE gateway tool called "gtm". ALL operations go through this one tool.
 
-	// Add logging middleware
+Usage: call tool "gtm" with {"resource": "<resource>", "action": "<action>", "args": {<params>}}
+
+Resources & actions:
+  account → list
+  container → list, create, delete
+  workspace → list, create, status
+  tag → list, get, create, update, delete, revert
+  trigger → list, get, create, update, delete, revert
+  variable → list, get, create, update, delete, revert
+  folder → list, get, create, update, delete, move, audit, revert
+  template → list, get, create, update, delete, import, revert
+  built_in_variable → list, enable, disable, revert
+  client → list, get, create, update, delete, revert
+  transformation → list, get, create, update, delete, revert
+  environment → list, get, create, update, delete
+  user_permission → list, get, create, update, delete
+  version → list, get, create, publish, compare, find_by_date, set_latest, export
+  destination → list, get, link
+  zone → list, get, create, update, delete, revert
+  gtag_config → list, get, create, update, delete
+  templates_ref → tag_templates, trigger_templates
+  ping → (no action needed)
+  auth_status → (no action needed)
+
+Examples:
+  List accounts: {"resource": "account", "action": "list", "args": {}}
+  Create a tag: {"resource": "tag", "action": "create", "args": {"accountId": "...", "containerId": "...", "workspaceId": "...", "name": "My Tag", ...}}
+  Check auth: {"resource": "auth_status", "action": "", "args": {}}
+
+Legacy tool names (e.g. "list_accounts", "tag") are supported via backward compatibility middleware.`,
+	})
+
+	// Add middleware (order matters: compat first, then logging, then audit)
+	server.AddReceivingMiddleware(middleware.NewToolCompatMiddleware(logger))
 	server.AddReceivingMiddleware(middleware.NewLoggingMiddleware(logger))
+	server.AddReceivingMiddleware(middleware.NewAuditMiddleware(logger))
 
 	// Register tools
 	registerTools(server)
+
+	// Stdio mode: direct MCP over stdin/stdout, no auth
+	if *stdioMode {
+		logger.Info("starting in stdio mode (no auth)")
+		if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+			logger.Error("stdio server error", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	// Create HTTP handler for MCP
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
@@ -75,6 +141,38 @@ func main() {
 			"service": serverName,
 			"version": serverVersion,
 		})
+	})
+
+	// Readiness check — verifies backend dependencies
+	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		status := map[string]any{
+			"service": serverName,
+			"version": serverVersion,
+		}
+
+		// Quick SQLite check: try to open and ping the database
+		db, err := sql.Open("sqlite", ".gtm-tokens.db")
+		if err != nil {
+			status["status"] = "degraded"
+			status["token_store"] = "error: " + err.Error()
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			pingErr := db.Ping()
+			_ = db.Close()
+			if pingErr != nil {
+				status["status"] = "degraded"
+				status["token_store"] = "error: " + pingErr.Error()
+				w.WriteHeader(http.StatusServiceUnavailable)
+			} else {
+				status["status"] = "ready"
+				status["token_store"] = "ok"
+				w.WriteHeader(http.StatusOK)
+			}
+		}
+
+		json.NewEncoder(w).Encode(status)
 	})
 
 	// URL resolver for dynamic base URL resolution in Docker-to-Docker contexts.
@@ -99,18 +197,27 @@ func main() {
 	oauthConfigured := cfg.ValidateAuth() == nil
 
 	// Rate limiters for public endpoints
-	oauthLimiter := middleware.NewRateLimiter(10, 20)   // 10 req/s, burst 20
-	registerLimiter := middleware.NewRateLimiter(2, 5)   // 2 req/s, burst 5
+	oauthLimiter := middleware.NewRateLimiter(10, 20)  // 10 req/s, burst 20
+	registerLimiter := middleware.NewRateLimiter(2, 5) // 2 req/s, burst 5
+	mcpLimiter := middleware.NewRateLimiter(30, 50)    // 30 req/s, burst 50
 
 	if oauthConfigured {
-		// Set up OAuth
-		tokenStore = auth.NewMemoryTokenStore()
+		// Set up OAuth with encrypted token store
+		encryptionKey := auth.DeriveKey(cfg.JWTSecret)
+		var err error
+		tokenStore, err = store.NewSQLiteTokenStore(".gtm-tokens.db", encryptionKey)
+		if err != nil {
+			logger.Error("failed to initialize sqlite token store", "error", err)
+			os.Exit(1)
+		}
+
 		googleProvider := auth.NewGoogleProvider(
 			cfg.GoogleClientID,
 			cfg.GoogleClientSecret,
 			cfg.BaseURL+"/oauth/callback",
+			cfg.GoogleScopes...,
 		)
-		authServer = auth.NewServer(cfg.BaseURL, googleProvider, tokenStore, logger, cfg.AccessTokenTTL)
+		authServer = auth.NewServer(cfg.BaseURL, googleProvider, tokenStore, logger, cfg.AccessTokenTTL, cfg.AllowedDCRDomains...)
 
 		// OAuth endpoints with rate limiting and body size limits
 		mux.HandleFunc("GET /authorize", oauthLimiter.MiddlewareFunc(authServer.AuthorizeHandler))
@@ -118,10 +225,10 @@ func main() {
 		mux.HandleFunc("POST /token", oauthLimiter.MiddlewareFunc(middleware.MaxBytesMiddleware(1<<20, authServer.TokenHandler)))
 		mux.HandleFunc("POST /register", registerLimiter.MiddlewareFunc(middleware.MaxBytesMiddleware(1<<20, authServer.RegistrationHandler)))
 
-		// MCP endpoint with REQUIRED auth middleware and body size limit
+		// MCP endpoint with REQUIRED auth middleware, rate limiting, and body size limit
 		// Returns 401 if no valid Bearer token - triggers Claude's OAuth flow
 		authMiddleware := auth.Middleware(tokenStore, googleProvider, logger, cfg.BaseURL, cfg.AccessTokenTTL, urlResolver)
-		mux.Handle("/", authMiddleware(maxBytesHandler(5<<20, mcpHandler)))
+		mux.Handle("/", mcpLimiter.Middleware(authMiddleware(maxBytesHandler(5<<20, mcpHandler))))
 
 		logger.Info("OAuth configured",
 			"authorize_endpoint", cfg.BaseURL+"/authorize",
@@ -148,8 +255,8 @@ func main() {
 		mux.HandleFunc("POST /token", oauthLimiter.MiddlewareFunc(oauthNotConfiguredHandler))
 		mux.HandleFunc("POST /register", registerLimiter.MiddlewareFunc(oauthNotConfiguredHandler))
 
-		// MCP endpoint without auth (still apply body size limit)
-		mux.Handle("/", maxBytesHandler(5<<20, mcpHandler))
+		// MCP endpoint without auth (still apply rate limit and body size limit)
+		mux.Handle("/", mcpLimiter.Middleware(maxBytesHandler(5<<20, mcpHandler)))
 	}
 
 	// Create HTTP server
@@ -196,7 +303,7 @@ func main() {
 
 // registerTools adds MCP tools to the server.
 func registerTools(server *mcp.Server) {
-	registerUtilityTools(server)
+	// All tools (including ping and auth_status) are registered via the gateway
 	gtm.RegisterTools(server)
 }
 
@@ -207,49 +314,5 @@ func maxBytesHandler(maxBytes int64, next http.Handler) http.Handler {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 		}
 		next.ServeHTTP(w, r)
-	})
-}
-
-// registerUtilityTools adds ping and auth_status tools.
-func registerUtilityTools(server *mcp.Server) {
-	// Ping tool for testing connectivity
-	type PingInput struct {
-		Message string `json:"message,omitempty" jsonschema:"Optional message to echo back"`
-	}
-	type PingOutput struct {
-		Reply     string `json:"reply"`
-		Timestamp string `json:"timestamp"`
-	}
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "ping",
-		Description: "Test connectivity to the GTM MCP server",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, input PingInput) (*mcp.CallToolResult, PingOutput, error) {
-		reply := "pong"
-		if input.Message != "" {
-			reply = fmt.Sprintf("pong: %s", input.Message)
-		}
-		return nil, PingOutput{Reply: reply, Timestamp: time.Now().UTC().Format(time.RFC3339)}, nil
-	})
-
-	// Auth status tool
-	type AuthStatusInput struct{}
-	type AuthStatusOutput struct {
-		Authenticated bool   `json:"authenticated"`
-		Message       string `json:"message"`
-	}
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "auth_status",
-		Description: "Check authentication status with Google Tag Manager",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, input AuthStatusInput) (*mcp.CallToolResult, AuthStatusOutput, error) {
-		tokenInfo := auth.GetTokenInfo(ctx)
-		output := AuthStatusOutput{Authenticated: tokenInfo != nil}
-		if tokenInfo != nil {
-			output.Message = "You are authenticated and can access GTM data"
-		} else {
-			output.Message = "Not authenticated. GTM tools will require authentication."
-		}
-		return nil, output, nil
 	})
 }

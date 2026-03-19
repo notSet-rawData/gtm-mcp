@@ -1,16 +1,17 @@
-*.example
-go-sdk-main/
-*.md
+# Environment files
 .env
-.env.deploy
-!README.md
 .env.local
+.env.deploy
+*.example
+
+# Hidden directories (except .github and .goreleaser)
 .*/
 !.github/
 !.goreleaser.yaml
 
 # Build artifacts
 dist/
+go-sdk-main/
 
 # Binary
 gtm-mcp-server
@@ -26,3 +27,38 @@ docker-compose.yml
 
 # MCP Registry tokens
 .mcpregistry_*
+
+# SQLite databases & WAL files
+*.db
+*.db-shm
+*.db-wal
+
+# Generated PDFs & docs
+*.pdf
+
+# Node.js (used for PDF generation scripts)
+node_modules/
+package.json
+package-lock.json
+generate-pdf.mjs
+
+# HTML exports
+*.html
+
+# Images (logos are embedded or referenced externally)
+images/
+mcp-logo.png
+mcp-logo.svg
+gtm-logo.png
+
+# Audit & comparison docs (internal only)
+audit-stape-vs-ours.md
+
+# Temporary files
+refactor.py
+/tmp/
+
+# SSH keys (NEVER commit these)
+ssh/
+*.key
+*.pem

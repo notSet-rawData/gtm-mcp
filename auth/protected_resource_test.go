@@ -8,7 +8,7 @@ import (
 )
 
 func TestProtectedResourceMetadataHandler_StaticBaseURL(t *testing.T) {
-	handler := ProtectedResourceMetadataHandler("https://mcp.gtmeditor.com", "https://mcp.gtmeditor.com", nil)
+	handler := ProtectedResourceMetadataHandler("https://mcp.notset.es", "https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource", nil)
 	w := httptest.NewRecorder()
@@ -25,17 +25,17 @@ func TestProtectedResourceMetadataHandler_StaticBaseURL(t *testing.T) {
 	}
 
 	// Resource should have trailing slash for root URLs (Gemini CLI compatibility)
-	if meta.Resource != "https://mcp.gtmeditor.com/" {
-		t.Errorf("resource = %q, want https://mcp.gtmeditor.com/ (with trailing slash)", meta.Resource)
+	if meta.Resource != "https://mcp.notset.es/" {
+		t.Errorf("resource = %q, want https://mcp.notset.es/ (with trailing slash)", meta.Resource)
 	}
-	if len(meta.AuthorizationServers) != 1 || meta.AuthorizationServers[0] != "https://mcp.gtmeditor.com" {
+	if len(meta.AuthorizationServers) != 1 || meta.AuthorizationServers[0] != "https://mcp.notset.es" {
 		t.Errorf("authorization_servers = %v", meta.AuthorizationServers)
 	}
 }
 
 func TestProtectedResourceMetadataHandler_DynamicResolver_TrustedHost(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", []string{"gtm-mcp:8080"})
-	handler := ProtectedResourceMetadataHandler("https://mcp.gtmeditor.com", "https://mcp.gtmeditor.com", resolver)
+	resolver := NewURLResolver("https://mcp.notset.es", []string{"gtm-mcp:8080"})
+	handler := ProtectedResourceMetadataHandler("https://mcp.notset.es", "https://mcp.notset.es", resolver)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource", nil)
 	req.Host = "gtm-mcp:8080"
@@ -55,8 +55,8 @@ func TestProtectedResourceMetadataHandler_DynamicResolver_TrustedHost(t *testing
 }
 
 func TestProtectedResourceMetadataHandler_DynamicResolver_UntrustedHost(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", nil)
-	handler := ProtectedResourceMetadataHandler("https://mcp.gtmeditor.com", "https://mcp.gtmeditor.com", resolver)
+	resolver := NewURLResolver("https://mcp.notset.es", nil)
+	handler := ProtectedResourceMetadataHandler("https://mcp.notset.es", "https://mcp.notset.es", resolver)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource", nil)
 	req.Host = "evil.com"
@@ -69,7 +69,7 @@ func TestProtectedResourceMetadataHandler_DynamicResolver_UntrustedHost(t *testi
 	json.NewDecoder(w.Body).Decode(&meta)
 
 	// Should fall back to configured URL
-	if meta.Resource != "https://mcp.gtmeditor.com/" {
+	if meta.Resource != "https://mcp.notset.es/" {
 		t.Errorf("resource = %q, should use configured URL not evil.com", meta.Resource)
 	}
 }
@@ -79,8 +79,8 @@ func TestNormalizeResourceURL_RootURL(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"https://mcp.gtmeditor.com", "https://mcp.gtmeditor.com/"},
-		{"https://mcp.gtmeditor.com/", "https://mcp.gtmeditor.com/"},
+		{"https://mcp.notset.es", "https://mcp.notset.es/"},
+		{"https://mcp.notset.es/", "https://mcp.notset.es/"},
 		{"http://localhost:8080", "http://localhost:8080/"},
 		{"http://localhost:8080/", "http://localhost:8080/"},
 	}
@@ -115,7 +115,7 @@ func TestNormalizeResourceURL_PathURL(t *testing.T) {
 }
 
 func TestProtectedResourceMetadataHandler_MethodNotAllowed(t *testing.T) {
-	handler := ProtectedResourceMetadataHandler("https://mcp.gtmeditor.com", "https://mcp.gtmeditor.com", nil)
+	handler := ProtectedResourceMetadataHandler("https://mcp.notset.es", "https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/.well-known/oauth-protected-resource", nil)
 	w := httptest.NewRecorder()
@@ -130,7 +130,7 @@ func TestProtectedResourceMetadataHandler_MethodNotAllowed(t *testing.T) {
 func TestMetadataConsistency_IssuerMatchesAuthServer(t *testing.T) {
 	// Verify that the issuer in auth metadata matches the authorization_servers
 	// entry in protected resource metadata (without trailing slash)
-	baseURL := "https://mcp.gtmeditor.com"
+	baseURL := "https://mcp.notset.es"
 
 	authMeta := NewOAuthMetadata(baseURL)
 	resMeta := NewProtectedResourceMetadata(baseURL, baseURL)

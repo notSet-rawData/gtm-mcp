@@ -2,8 +2,24 @@ package gtm
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+// numericIDPattern validates that GTM IDs are numeric-only.
+// Defense-in-depth: reject path traversal or injection before reaching Google API.
+var numericIDPattern = regexp.MustCompile(`^[0-9]+$`)
+
+// ValidateNumericID checks that an ID is a non-empty numeric string.
+func ValidateNumericID(name, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("%s is required", name)
+	}
+	if !numericIDPattern.MatchString(value) {
+		return fmt.Errorf("%s must be numeric (got %q)", name, value)
+	}
+	return nil
+}
 
 // ValidateTagInput validates tag creation/update inputs.
 func ValidateTagInput(name, tagType string, firingTriggerIDs []string) error {
@@ -57,14 +73,14 @@ func ValidateVariableInput(name, varType string) error {
 
 // ValidateWorkspacePath validates workspace path components.
 func ValidateWorkspacePath(accountID, containerID, workspaceID string) error {
-	if strings.TrimSpace(accountID) == "" {
-		return fmt.Errorf("account ID is required")
+	if err := ValidateNumericID("account ID", accountID); err != nil {
+		return err
 	}
-	if strings.TrimSpace(containerID) == "" {
-		return fmt.Errorf("container ID is required")
+	if err := ValidateNumericID("container ID", containerID); err != nil {
+		return err
 	}
-	if strings.TrimSpace(workspaceID) == "" {
-		return fmt.Errorf("workspace ID is required")
+	if err := ValidateNumericID("workspace ID", workspaceID); err != nil {
+		return err
 	}
 	return nil
 }
@@ -77,11 +93,11 @@ func BuildWorkspacePath(accountID, containerID, workspaceID string) string {
 
 // ValidateContainerPath validates container path components.
 func ValidateContainerPath(accountID, containerID string) error {
-	if strings.TrimSpace(accountID) == "" {
-		return fmt.Errorf("account ID is required")
+	if err := ValidateNumericID("account ID", accountID); err != nil {
+		return err
 	}
-	if strings.TrimSpace(containerID) == "" {
-		return fmt.Errorf("container ID is required")
+	if err := ValidateNumericID("container ID", containerID); err != nil {
+		return err
 	}
 	return nil
 }

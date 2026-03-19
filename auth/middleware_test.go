@@ -57,6 +57,12 @@ func (m *mockTokenStore) DeleteToken(accessToken string) error {
 	return nil
 }
 
+func (m *mockTokenStore) RotateToken(oldAccessToken string, newToken *TokenInfo) error {
+	m.tokens[newToken.AccessToken] = newToken
+	delete(m.tokens, oldAccessToken)
+	return nil
+}
+
 func (m *mockTokenStore) UpdateGoogleToken(accessToken string, googleToken *oauth2.Token) error {
 	info, ok := m.tokens[accessToken]
 	if !ok {
@@ -443,7 +449,7 @@ func TestMiddleware_ErrorResponseFormat(t *testing.T) {
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	mw := Middleware(store, nil, logger, "https://mcp.gtmeditor.com", 1*time.Hour, nil)
+	mw := Middleware(store, nil, logger, "https://mcp.notset.es", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

@@ -231,10 +231,11 @@ func (c *Client) CreateVariable(ctx context.Context, accountID, containerID, wor
 	parent := BuildWorkspacePath(accountID, containerID, workspaceID)
 
 	variable := &tagmanager.Variable{
-		Name:      input.Name,
-		Type:      input.Type,
-		Parameter: toAPIParams(input.Parameter),
-		Notes:     input.Notes,
+		Name:           input.Name,
+		Type:           input.Type,
+		Parameter:      toAPIParams(input.Parameter),
+		Notes:          input.Notes,
+		ParentFolderId: input.ParentFolderID,
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Variables.Create(parent, variable).Context(ctx).Do()
@@ -418,4 +419,15 @@ func BuildClientPath(accountID, containerID, workspaceID, clientID string) strin
 func BuildTransformationPath(accountID, containerID, workspaceID, transformationID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/transformations/%s",
 		accountID, containerID, workspaceID, transformationID)
+}
+
+// BuildEnvironmentPath constructs an environment path from IDs.
+func BuildEnvironmentPath(accountID, containerID, environmentID string) string {
+	return fmt.Sprintf("accounts/%s/containers/%s/environments/%s",
+		accountID, containerID, environmentID)
+}
+
+// BuildUserPermissionPath constructs a user permission path from IDs.
+func BuildUserPermissionPath(accountID, permissionID string) string {
+	return fmt.Sprintf("accounts/%s/permissions/%s", accountID, permissionID)
 }

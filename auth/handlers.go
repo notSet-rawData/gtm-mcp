@@ -14,21 +14,28 @@ import (
 
 // Server handles OAuth2 authorization endpoints.
 type Server struct {
-	baseURL        string
-	google         *GoogleProvider
-	store          TokenStore
-	logger         *slog.Logger
-	accessTokenTTL time.Duration
+	baseURL            string
+	google             *GoogleProvider
+	store              TokenStore
+	logger             *slog.Logger
+	accessTokenTTL     time.Duration
+	allowedDCRDomains  map[string]bool
 }
 
 // NewServer creates a new OAuth server.
-func NewServer(baseURL string, google *GoogleProvider, store TokenStore, logger *slog.Logger, accessTokenTTL time.Duration) *Server {
+// allowedDCRDomains restricts which domains can register via DCR. Empty = accept any.
+func NewServer(baseURL string, google *GoogleProvider, store TokenStore, logger *slog.Logger, accessTokenTTL time.Duration, allowedDCRDomains ...string) *Server {
+	dcrDomains := make(map[string]bool)
+	for _, d := range allowedDCRDomains {
+		dcrDomains[d] = true
+	}
 	return &Server{
-		baseURL:        baseURL,
-		google:         google,
-		store:          store,
-		logger:         logger,
-		accessTokenTTL: accessTokenTTL,
+		baseURL:           baseURL,
+		google:            google,
+		store:             store,
+		logger:            logger,
+		accessTokenTTL:    accessTokenTTL,
+		allowedDCRDomains: dcrDomains,
 	}
 }
 
@@ -105,15 +112,13 @@ func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 	// Store the auth state for later verification
 	authState := &AuthState{
 		State:        googleState,
+		ClientState:  state,
 		CodeVerifier: codeChallenge, // Store the challenge, we'll verify later
 		RedirectURI:  redirectURI,
 		ClientID:     clientID,
 		Resource:     resource, // Store resource for audience binding
 		CreatedAt:    time.Now(),
 	}
-
-	// Also store Claude's state so we can pass it back
-	authState.State = googleState + "|" + state
 
 	if err := s.store.StoreState(authState); err != nil {
 		s.logger.Error("failed to store state", "error", err)
@@ -148,31 +153,26 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.URL.Query().Get("code")
-	combinedState := r.URL.Query().Get("state")
+	googleState := r.URL.Query().Get("state")
 
-	if code == "" || combinedState == "" {
+	if code == "" || googleState == "" {
 		s.errorResponse(w, "invalid_request", "Missing code or state")
 		return
 	}
 
-	// Split the combined state
-	parts := strings.SplitN(combinedState, "|", 2)
-	if len(parts) != 2 {
-		s.errorResponse(w, "invalid_request", "Invalid state format")
-		return
-	}
-	claudeState := parts[1]
-
-	// Retrieve stored auth state
-	authState, err := s.store.GetState(combinedState)
+	// Retrieve stored auth state using the google state directly
+	authState, err := s.store.GetState(googleState)
 	if err != nil {
 		s.logger.Error("failed to get state", "error", err)
 		s.errorResponse(w, "invalid_request", "Invalid or expired state")
 		return
 	}
 
+	// Get the client's original state
+	claudeState := authState.ClientState
+
 	// Clean up the state
-	_ = s.store.DeleteState(combinedState)
+	_ = s.store.DeleteState(googleState)
 
 	// Exchange code with Google
 	googleToken, err := s.google.Exchange(r.Context(), code)
@@ -399,9 +399,7 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Delete old token (invalidates the old refresh token)
-	_ = s.store.DeleteToken(tokenInfo.AccessToken)
-
-	// Store new token with rotated refresh token
+	// Atomically rotate: store new then delete old in one operation
 	newTokenInfo := &TokenInfo{
 		AccessToken:      newAccessToken,
 		RefreshToken:     newRefreshToken,
@@ -412,8 +410,8 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 		CreatedAt:        time.Now(),
 	}
 
-	if err := s.store.StoreToken(newTokenInfo); err != nil {
-		s.logger.Error("failed to store new token", "error", err)
+	if err := s.store.RotateToken(tokenInfo.AccessToken, newTokenInfo); err != nil {
+		s.logger.Error("failed to rotate token", "error", err)
 		s.tokenError(w, "server_error", "Internal server error")
 		return
 	}

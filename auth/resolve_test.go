@@ -8,20 +8,20 @@ import (
 )
 
 func TestURLResolver_Resolve_ConfiguredHost(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", nil)
+	resolver := NewURLResolver("https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Host = "mcp.gtmeditor.com"
+	req.Host = "mcp.notset.es"
 	req.Header.Set("X-Forwarded-Proto", "https")
 
 	got := resolver.Resolve(req)
-	if got != "https://mcp.gtmeditor.com" {
-		t.Errorf("expected https://mcp.gtmeditor.com, got %s", got)
+	if got != "https://mcp.notset.es" {
+		t.Errorf("expected https://mcp.notset.es, got %s", got)
 	}
 }
 
 func TestURLResolver_Resolve_AllowedHost(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", []string{"gtm-mcp:8080"})
+	resolver := NewURLResolver("https://mcp.notset.es", []string{"gtm-mcp:8080"})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Host = "gtm-mcp:8080"
@@ -33,39 +33,39 @@ func TestURLResolver_Resolve_AllowedHost(t *testing.T) {
 }
 
 func TestURLResolver_Resolve_UntrustedHost_FallsBack(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", nil)
+	resolver := NewURLResolver("https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Host = "evil.com"
 	req.Header.Set("X-Forwarded-Proto", "https")
 
 	got := resolver.Resolve(req)
-	if got != "https://mcp.gtmeditor.com" {
+	if got != "https://mcp.notset.es" {
 		t.Errorf("expected fallback to configured URL, got %s", got)
 	}
 }
 
 func TestURLResolver_Resolve_EmptyHost_FallsBack(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", nil)
+	resolver := NewURLResolver("https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Host = ""
 
 	got := resolver.Resolve(req)
-	if got != "https://mcp.gtmeditor.com" {
+	if got != "https://mcp.notset.es" {
 		t.Errorf("expected fallback to configured URL, got %s", got)
 	}
 }
 
 func TestURLResolver_Resolve_SchemeFromTLS(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", nil)
+	resolver := NewURLResolver("https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Host = "mcp.gtmeditor.com"
+	req.Host = "mcp.notset.es"
 	req.TLS = &tls.ConnectionState{}
 
 	got := resolver.Resolve(req)
-	if got != "https://mcp.gtmeditor.com" {
+	if got != "https://mcp.notset.es" {
 		t.Errorf("expected https from TLS, got %s", got)
 	}
 }
@@ -96,17 +96,17 @@ func TestURLResolver_Resolve_HTTPByDefault(t *testing.T) {
 }
 
 func TestURLResolver_Resolve_MultipleAllowedHosts(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", []string{"gtm-mcp:8080", "localhost:8080"})
+	resolver := NewURLResolver("https://mcp.notset.es", []string{"gtm-mcp:8080", "localhost:8080"})
 
 	tests := []struct {
 		host     string
 		proto    string
 		expected string
 	}{
-		{"mcp.gtmeditor.com", "https", "https://mcp.gtmeditor.com"},
+		{"mcp.notset.es", "https", "https://mcp.notset.es"},
 		{"gtm-mcp:8080", "", "http://gtm-mcp:8080"},
 		{"localhost:8080", "", "http://localhost:8080"},
-		{"evil.com", "https", "https://mcp.gtmeditor.com"},
+		{"evil.com", "https", "https://mcp.notset.es"},
 	}
 
 	for _, tt := range tests {

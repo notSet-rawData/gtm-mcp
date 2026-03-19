@@ -192,3 +192,214 @@ func GetTriggerTemplates() []TriggerTemplate {
 		},
 	}
 }
+
+// ClientTemplate provides example parameter structures for creating sGTM clients.
+type ClientTemplate struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	Priority    int64  `json:"priority"`
+	Parameters  string `json:"parameters"`
+	Notes       string `json:"notes"`
+}
+
+// GetClientTemplates returns example parameter structures for common server-side GTM client types.
+// These templates help LLMs create sGTM clients with the correct parameter format.
+func GetClientTemplates() []ClientTemplate {
+	return []ClientTemplate{
+		{
+			Name:        "GA4 Client",
+			Description: "Google Analytics 4 client — claims and processes GA4 /collect and /g/collect requests",
+			Type:        "gaaw_client",
+			Priority:    10,
+			Parameters: `[
+  {"type": "boolean", "key": "activateGtagOnPage", "value": "false"},
+  {"type": "boolean", "key": "enableCookieOverrides", "value": "false"}
+]`,
+			Notes: "The GA4 client (gaaw_client) automatically claims GA4 requests. Priority determines which client gets first claim when multiple clients match. activateGtagOnPage serves the GA4 JS library from your server domain (first-party). enableCookieOverrides enables server-managed cookies.",
+		},
+		{
+			Name:        "GA4 Client with Server-Managed Cookies",
+			Description: "GA4 client with first-party cookie management for improved tracking accuracy",
+			Type:        "gaaw_client",
+			Priority:    10,
+			Parameters: `[
+  {"type": "boolean", "key": "activateGtagOnPage", "value": "true"},
+  {"type": "boolean", "key": "enableCookieOverrides", "value": "true"},
+  {"type": "template", "key": "cookiePrefix", "value": "_ga_sst"},
+  {"type": "boolean", "key": "enableRegionSpecificSettings", "value": "false"},
+  {"type": "boolean", "key": "enableJsLibrary", "value": "true"}
+]`,
+			Notes: "Server-managed cookies (enableCookieOverrides) set first-party cookies from your server domain, improving tracking in browsers with ITP restrictions (Safari, Firefox). cookiePrefix avoids collision with client-side cookies. enableJsLibrary serves gtag.js from your domain.",
+		},
+		{
+			Name:        "HTTP Request Client (Webhook Receiver)",
+			Description: "Generic HTTP client that claims requests matching a specific path — webhooks, Measurement Protocol, custom APIs",
+			Type:        "http_request",
+			Priority:    20,
+			Parameters: `[
+  {"type": "template", "key": "requestMethod", "value": "POST"},
+  {"type": "template", "key": "requestPath", "value": "/webhook"},
+  {"type": "boolean", "key": "defaultResponse", "value": "true"}
+]`,
+			Notes: "http_request clients claim incoming HTTP requests matching specific paths. Use for webhooks, Measurement Protocol forwarding, or custom API endpoints. Higher priority number = lower priority (claimed after other clients). defaultResponse sends a 200 OK automatically.",
+		},
+		{
+			Name:        "Measurement Protocol Client",
+			Description: "Client for receiving GA4 Measurement Protocol hits (server-to-server events)",
+			Type:        "http_request",
+			Priority:    15,
+			Parameters: `[
+  {"type": "template", "key": "requestMethod", "value": "POST"},
+  {"type": "template", "key": "requestPath", "value": "/mp/collect"},
+  {"type": "boolean", "key": "defaultResponse", "value": "true"}
+]`,
+			Notes: "Receives Measurement Protocol v2 requests at /mp/collect. Typically used for offline conversions, CRM events, or server-to-server data. Pair with a GA4 tag to forward events to your property.",
+		},
+		// NOTE: Facebook CAPI, TikTok Events API, etc. are sGTM TAGS (they send data out),
+		// not clients (which receive/claim incoming requests). Those belong in GetServerSideTagTemplates().
+	}
+}
+
+// ServerSideTagTemplate provides example parameter structures for sGTM tags.
+type ServerSideTagTemplate struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	Parameters  string `json:"parameters"`
+	Notes       string `json:"notes"`
+}
+
+// GetServerSideTagTemplates returns example parameter structures for server-side GTM tag types.
+// These are separate from web tag templates because sGTM tags use different type identifiers.
+// Source: datalayer-server-side-gtm notebook (built-in tags) + marketing-meta notebook (CAPI params).
+func GetServerSideTagTemplates() []ServerSideTagTemplate {
+	return []ServerSideTagTemplate{
+		{
+			Name:        "GA4 Server-Side Tag",
+			Description: "Forwards event data from GA4 client to Google Analytics 4 property — the most common sGTM tag",
+			Type:        "sgtmgaaw",
+			Parameters: `[
+  {"type": "boolean", "key": "inheritMeasurementId", "value": "true"},
+  {"type": "template", "key": "measurementIdOverride", "value": ""},
+  {"type": "boolean", "key": "inheritEventName", "value": "true"},
+  {"type": "template", "key": "eventNameOverride", "value": ""},
+  {"type": "boolean", "key": "redactVisitorIp", "value": "false"},
+  {"type": "boolean", "key": "removeAdsDataRedaction", "value": "false"}
+]`,
+			Notes: "Uses type 'sgtmgaaw'. When inheritMeasurementId is true, reads the Measurement ID from the incoming GA4 client event. Set measurementIdOverride to route data to a different GA4 property. inheritEventName allows forwarding the original event name or overriding it. redactVisitorIp removes the user's IP before sending to GA4.",
+		},
+		{
+			Name:        "HTTP Request Tag",
+			Description: "Sends HTTP requests to any endpoint — use for webhooks, custom APIs, or forwarding data to non-Google destinations",
+			Type:        "sgtmhttp",
+			Parameters: `[
+  {"type": "template", "key": "requestUrl", "value": "https://api.example.com/events"},
+  {"type": "template", "key": "requestMethod", "value": "POST"},
+  {"type": "template", "key": "requestBody", "value": "{\"event\": \"{{Event Name}}\", \"timestamp\": \"{{Event Timestamp}}\"}"},
+  {"type": "list", "key": "requestHeaders", "list": [
+    {"type": "map", "map": [
+      {"type": "template", "key": "headerName", "value": "Content-Type"},
+      {"type": "template", "key": "headerValue", "value": "application/json"}
+    ]},
+    {"type": "map", "map": [
+      {"type": "template", "key": "headerName", "value": "Authorization"},
+      {"type": "template", "key": "headerValue", "value": "Bearer {{API Key}}"}
+    ]}
+  ]}
+]`,
+			Notes: "Uses type 'sgtmhttp'. Sends arbitrary HTTP requests from the server. Reference sGTM variables (Event Name, Event Timestamp, etc.) in the request body. Supports custom headers for authentication. Use this for integrations without a dedicated Gallery template.",
+		},
+		{
+			Name:        "Conversion Linker",
+			Description: "Reads Google click IDs (GCLID, DCLID) from incoming requests and stores them in first-party cookies for conversion attribution",
+			Type:        "gclidw",
+			Parameters: `[
+  {"type": "boolean", "key": "enableCrossDomain", "value": "false"},
+  {"type": "boolean", "key": "enableUrlPassthrough", "value": "false"}
+]`,
+			Notes: "Uses type 'gclidw'. Essential for Google Ads and Floodlight conversion tracking in sGTM. Reads GCLID/DCLID from the incoming request, stores in cookies (_gcl_aw, _gcl_dc). Should fire on All Pages trigger. enableCrossDomain is needed if tracking spans multiple domains.",
+		},
+		{
+			Name:        "Meta Conversions API (CAPI) — Gallery Template",
+			Description: "Sends server-side events to Meta/Facebook Conversions API for ad attribution and optimization",
+			Type:        "cvt_CONTAINER_TEMPLATE_ID",
+			Parameters: `[
+  {"type": "template", "key": "pixelId", "value": "YOUR_PIXEL_ID"},
+  {"type": "template", "key": "accessToken", "value": "YOUR_ACCESS_TOKEN"},
+  {"type": "template", "key": "actionSource", "value": "website"},
+  {"type": "template", "key": "eventId", "value": "{{Event ID}}"},
+  {"type": "boolean", "key": "inheritEventName", "value": "true"}
+]`,
+			Notes: "Gallery template — import first via import_gallery_template. Type will be 'cvt_{containerId}_{templateId}'. Required by Meta: pixelId, accessToken, actionSource, event_source_url (auto-read from GA4 client), client_user_agent (auto-read). For deduplication with browser pixel, eventId must match the browser's eventID. Send user data (em, ph, fbp, fbc) for better Event Match Quality. Parameters em/ph/fn/ln require SHA256 hashing.",
+		},
+	}
+}
+
+// TransformationTemplate provides example parameter structures for sGTM transformations.
+type TransformationTemplate struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	Parameters  string `json:"parameters"`
+	Notes       string `json:"notes"`
+}
+
+// GetTransformationTemplates returns example structures for common sGTM transformation types.
+func GetTransformationTemplates() []TransformationTemplate {
+	return []TransformationTemplate{
+		{
+			Name:        "Redact PII from Event Data",
+			Description: "Remove or hash personally identifiable information before forwarding",
+			Type:        "gtes",
+			Parameters: `[
+  {"type": "list", "key": "rules", "list": [
+    {"type": "map", "map": [
+      {"type": "template", "key": "eventDataKey", "value": "user_data.email_address"},
+      {"type": "template", "key": "action", "value": "remove"}
+    ]},
+    {"type": "map", "map": [
+      {"type": "template", "key": "eventDataKey", "value": "user_data.phone_number"},
+      {"type": "template", "key": "action", "value": "remove"}
+    ]}
+  ]}
+]`,
+			Notes: "Use transformation type 'gtes' (Google Tag Event Settings) to modify event data keys. Actions: 'remove' deletes the key, 'set' overrides it, 'hash' applies SHA256 hashing. Apply to sensitive fields before data leaves your server.",
+		},
+		{
+			Name:        "Add Server-Side Parameters",
+			Description: "Enrich events with server-side data (timestamps, internal IDs)",
+			Type:        "gtes",
+			Parameters: `[
+  {"type": "list", "key": "rules", "list": [
+    {"type": "map", "map": [
+      {"type": "template", "key": "eventDataKey", "value": "server_timestamp"},
+      {"type": "template", "key": "action", "value": "set"},
+      {"type": "template", "key": "value", "value": "{{Server Timestamp}}"}
+    ]},
+    {"type": "map", "map": [
+      {"type": "template", "key": "eventDataKey", "value": "server_processed"},
+      {"type": "template", "key": "action", "value": "set"},
+      {"type": "template", "key": "value", "value": "true"}
+    ]}
+  ]}
+]`,
+			Notes: "Use 'set' action to add or override event data keys. Reference server-side variables with {{Variable Name}} syntax. Useful for adding server timestamps, internal IDs, or enrichment data from APIs.",
+		},
+		{
+			Name:        "Filter by Event Name",
+			Description: "Apply transformation only to specific events",
+			Type:        "gtes",
+			Parameters: `[
+  {"type": "list", "key": "rules", "list": [
+    {"type": "map", "map": [
+      {"type": "template", "key": "eventDataKey", "value": "ip_override"},
+      {"type": "template", "key": "action", "value": "remove"}
+    ]}
+  ]},
+  {"type": "template", "key": "triggerCondition", "value": "{{Event Name}} equals purchase"}
+]`,
+			Notes: "Combine rules with triggerCondition to selectively apply transformations. This is useful for redacting IP addresses from purchase events or adding parameters only to specific event types.",
+		},
+	}
+}

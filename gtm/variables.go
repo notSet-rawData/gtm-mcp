@@ -13,6 +13,8 @@ type Variable struct {
 	Name       string `json:"name"`
 	Type       string `json:"type"`
 	Path       string `json:"path"`
+	// Parameter contains variable configuration (lookup tables, JavaScript code, data layer variable names, etc.).
+	Parameter any `json:"parameter,omitempty"`
 }
 
 // ListVariables returns all variables in a workspace.
@@ -47,18 +49,25 @@ func (c *Client) GetVariable(ctx context.Context, accountID, containerID, worksp
 		Type:       v.Type,
 		Path:       v.Path,
 	}
+	if len(v.Parameter) > 0 {
+		result.Parameter = v.Parameter
+	}
 	return &result, nil
 }
 
 func toVariables(variables []*tagmanager.Variable) []Variable {
 	result := make([]Variable, 0, len(variables))
 	for _, v := range variables {
-		result = append(result, Variable{
+		variable := Variable{
 			VariableID: v.VariableId,
 			Name:       v.Name,
 			Type:       v.Type,
 			Path:       v.Path,
-		})
+		}
+		if len(v.Parameter) > 0 {
+			variable.Parameter = v.Parameter
+		}
+		result = append(result, variable)
 	}
 	return result
 }

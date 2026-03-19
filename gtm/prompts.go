@@ -1,16 +1,20 @@
 package gtm
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // RegisterPrompts adds all GTM prompts to the MCP server.
+// Handlers are organized by "Job To Be Done" (JTBD):
+//   - prompts_audit.go  → "Is my container healthy?"  (10 handlers)
+//   - prompts_plan.go   → "What should I do / organize?" (10 handlers)
+//   - prompts_debug.go  → "Why doesn't it work / it broke" (8 handlers)
 func RegisterPrompts(server *mcp.Server) {
-	// Audit container prompt - analyzes workspace for issues
+
+	// =========================================================================
+	// AUDIT — "¿Mi container está bien?"
+	// =========================================================================
+
 	server.AddPrompt(&mcp.Prompt{
 		Name:        "audit_container",
 		Description: "Analyze a GTM workspace for potential issues, duplicates, naming inconsistencies, and best practice violations",
@@ -21,7 +25,101 @@ func RegisterPrompts(server *mcp.Server) {
 		},
 	}, handleAuditContainerPrompt)
 
-	// Generate tracking plan prompt - creates markdown documentation
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "audit_consent_privacy",
+		Description: "Audit GTM workspace for GDPR/ePrivacy compliance — check consent mode, tag firing conditions, and potential PII exposure in tracking",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+			{Name: "framework", Description: "Consent framework in use (e.g., 'OneTrust', 'Cookiebot', 'Didomi', 'none')", Required: false},
+		},
+	}, handleAuditConsentPrivacyPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "audit_server_side",
+		Description: "Analyze server-side GTM container configuration — clients, transformations, and tag interactions for sGTM best practices",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The server-side GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleAuditServerSidePrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "audit_custom_templates",
+		Description: "Audit custom tag and variable templates for security issues, outdated code, and compliance with Community Template Gallery standards",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleAuditCustomTemplatesPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "validate_variable_references",
+		Description: "Audit all workspace variables for broken references, orphaned variables, and circular dependencies — prevents silent production errors",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleValidateVariableReferencesPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "detect_duplicate_tags",
+		Description: "Detect redundant or duplicate tags analyzing type, triggers, and key parameters — reduces payload and analytics costs",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleDetectDuplicateTagsPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "optimize_built_in_variables",
+		Description: "Review enabled built-in variables and recommend which to enable or disable based on actual usage patterns in the workspace",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleOptimizeBuiltInVariablesPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "audit_sgtm_data_flow",
+		Description: "Trace the complete sGTM data pipeline: client → transformation → trigger → tag. Detects broken chains, orphaned paths, and silent event loss",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The server-side GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleAuditSGTMDataFlowPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "audit_sgtm_pii_exposure",
+		Description: "Audit sGTM container for PII leaking to third parties — checks transformations, tag parameters, and cookie handling for GDPR compliance",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The server-side GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleAuditSGTMPIIExposurePrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "audit_sgtm_client_priority",
+		Description: "Analyze sGTM client priority order, detect claim conflicts, and verify client-to-tag alignment — prevents silent data loss from misconfigured priorities",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The server-side GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleAuditSGTMClientPriorityPrompt)
+
+	// =========================================================================
+	// PLAN — "¿Qué hago / cómo organizo?"
+	// =========================================================================
+
 	server.AddPrompt(&mcp.Prompt{
 		Name:        "generate_tracking_plan",
 		Description: "Generate a Markdown tracking plan document from existing tags, triggers, and variables in a workspace",
@@ -32,7 +130,6 @@ func RegisterPrompts(server *mcp.Server) {
 		},
 	}, handleGenerateTrackingPlanPrompt)
 
-	// Suggest GA4 setup prompt - recommends tag structure
 	server.AddPrompt(&mcp.Prompt{
 		Name:        "suggest_ga4_setup",
 		Description: "Recommend a GA4 tag structure based on tracking goals and requirements",
@@ -41,7 +138,6 @@ func RegisterPrompts(server *mcp.Server) {
 		},
 	}, handleSuggestGA4SetupPrompt)
 
-	// Find gallery template prompt - guides LLM to discover templates
 	server.AddPrompt(&mcp.Prompt{
 		Name:        "find_gallery_template",
 		Description: "Guide to find and import a Community Template Gallery template by name",
@@ -49,333 +145,166 @@ func RegisterPrompts(server *mcp.Server) {
 			{Name: "templateName", Description: "The name of the template to find (e.g., 'iubenda', 'cookiebot', 'facebook pixel')", Required: true},
 		},
 	}, handleFindGalleryTemplatePrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "review_before_publish",
+		Description: "Review pending workspace changes and provide a pre-publish checklist with risk assessment before creating a version",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleReviewBeforePublishPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "folder_organization_review",
+		Description: "Analyze workspace folder structure, detect unorganized entities, and propose reorganization based on naming patterns and implementation type",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleFolderOrganizationReviewPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "migration_plan_ua_to_ga4",
+		Description: "Analyze Universal Analytics tags and generate a detailed GA4 migration plan with equivalences, gaps, and implementation order",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+			{Name: "ga4MeasurementId", Description: "The target GA4 Measurement ID (e.g., 'G-XXXXXXXXXX')", Required: true},
+		},
+	}, handleMigrationPlanUA2GA4Prompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "environment_promotion_checklist",
+		Description: "Generate a promotion checklist for safely moving GTM changes through environments (dev → staging → production) with version alignment checks",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The workspace ID with changes to promote", Required: true},
+		},
+	}, handleEnvironmentPromotionChecklistPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "plan_sgtm_setup",
+		Description: "Generate a complete server-side GTM setup plan from scratch — clients, tags, transformations, deployment, and testing checklist based on tracking goals",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "goals", Description: "Tracking goals (e.g., 'GA4 + Meta CAPI + consent mode')", Required: true},
+			{Name: "containerType", Description: "Setup type: 'web+server' (default) or 'server-only'", Required: false},
+		},
+	}, handlePlanSGTMSetupPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "plan_web_to_sgtm_migration",
+		Description: "Analyze a web GTM container and generate a migration plan to server-side — classifies web tags as migratable or DOM-dependent, maps to sGTM equivalents",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The web GTM container ID to analyze for migration", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handlePlanWebToSGTMMigrationPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "plan_sgtm_consent_architecture",
+		Description: "Design consent mode architecture for sGTM — maps browser consent signals to server-side enforcement via variables, triggers, and transformations",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The server-side GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+			{Name: "cmpPlatform", Description: "CMP platform in use (e.g., 'OneTrust', 'Cookiebot', 'Didomi')", Required: false},
+		},
+	}, handlePlanSGTMConsentArchitecturePrompt)
+
+	// =========================================================================
+	// DEBUG — "¿Por qué no funciona? / Se rompió algo"
+	// =========================================================================
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "debug_trigger_coverage",
+		Description: "Analyze which pages/events may not be covered by any trigger, and which triggers have conditions so restrictive they probably never fire",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+			{Name: "urlPatterns", Description: "Optional list of URL patterns from your site to verify trigger coverage against", Required: false},
+		},
+	}, handleDebugTriggerCoveragePrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "tag_firing_dependency_graph",
+		Description: "Build the complete firing dependency graph between tags, triggers, variables, and tag sequences — essential for debugging execution order",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+		},
+	}, handleTagFiringDependencyGraphPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "compare_workspaces",
+		Description: "Compare two workspaces in the same container to identify divergences in tags, triggers, and variables — ideal before merging parallel work",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceIdA", Description: "First workspace ID to compare", Required: true},
+			{Name: "workspaceIdB", Description: "Second workspace ID to compare", Required: true},
+		},
+	}, handleCompareWorkspacesPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "diff_versions",
+		Description: "Compare two published container versions and generate a structured changelog with field-level diffs and data collection impact analysis — essential for post-mortems",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "versionIdA", Description: "Base version ID (older/before)", Required: true},
+			{Name: "versionIdB", Description: "Target version ID (newer/after)", Required: true},
+		},
+	}, handleDiffVersionsPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "sync_workspace_conflicts",
+		Description: "Sync workspace with latest container version, detect merge conflicts, and provide resolution guidance with dependency-aware ordering",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The workspace ID to sync", Required: true},
+		},
+	}, handleSyncWorkspaceConflictsPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "rollback_strategy",
+		Description: "Analyze container version history around an incident date and recommend the optimal rollback target with trade-off analysis — for incident response",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The GTM container ID", Required: true},
+			{Name: "incidentDate", Description: "Date when the data anomaly was first detected (e.g., '2025-03-10')", Required: true},
+			{Name: "symptomDescription", Description: "Description of the observed problem (e.g., 'conversion tracking dropped 50%')", Required: false},
+		},
+	}, handleRollbackStrategyPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "debug_sgtm_event_loss",
+		Description: "Diagnose silent event loss in sGTM — walks through all 6 pipeline stages (client claim → event data → transformation → trigger → tag → outbound) to find where events disappear",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The server-side GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+			{Name: "symptom", Description: "Description of the event loss (e.g., 'GA4 events missing', 'CAPI conversions not showing')", Required: false},
+		},
+	}, handleDebugSGTMEventLossPrompt)
+
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "debug_sgtm_tag_response",
+		Description: "Debug HTTP errors (400/401/403/500) from sGTM outbound tags — analyzes variable resolution, transformation impact, and simulates payloads to find the issue",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "accountId", Description: "The GTM account ID", Required: true},
+			{Name: "containerId", Description: "The server-side GTM container ID", Required: true},
+			{Name: "workspaceId", Description: "The GTM workspace ID", Required: true},
+			{Name: "tagId", Description: "Optional specific tag ID to focus debugging on", Required: false},
+		},
+	}, handleDebugSGTMTagResponsePrompt)
 }
 
-func handleAuditContainerPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-	accountID := req.Params.Arguments["accountId"]
-	containerID := req.Params.Arguments["containerId"]
-	workspaceID := req.Params.Arguments["workspaceId"]
-
-	if accountID == "" || containerID == "" || workspaceID == "" {
-		return nil, fmt.Errorf("accountId, containerId, and workspaceId are required")
-	}
-
-	client, err := getClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Fetch all workspace data
-	tags, err := client.ListTags(ctx, accountID, containerID, workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list tags: %w", err)
-	}
-
-	triggers, err := client.ListTriggers(ctx, accountID, containerID, workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list triggers: %w", err)
-	}
-
-	variables, err := client.ListVariables(ctx, accountID, containerID, workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list variables: %w", err)
-	}
-
-	// Build the workspace data JSON
-	workspaceData := map[string]any{
-		"tags":      tags,
-		"triggers":  triggers,
-		"variables": variables,
-		"summary": map[string]int{
-			"totalTags":      len(tags),
-			"totalTriggers":  len(triggers),
-			"totalVariables": len(variables),
-		},
-	}
-
-	dataJSON, err := json.MarshalIndent(workspaceData, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-
-	return &mcp.GetPromptResult{
-		Description: "Container audit analysis request",
-		Messages: []*mcp.PromptMessage{
-			{
-				Role: "user",
-				Content: &mcp.TextContent{
-					Text: fmt.Sprintf(`Please audit this GTM workspace for potential issues. Here is the current configuration:
-
-%s
-
-Please analyze and report on:
-
-1. **Naming Consistency**
-   - Are tag, trigger, and variable names following a consistent pattern?
-   - Are there any names that are unclear or non-descriptive?
-
-2. **Duplicate Detection**
-   - Are there any tags that appear to be duplicates (same type and similar configuration)?
-   - Are there triggers that fire on the same conditions?
-
-3. **Orphaned Items**
-   - Are there any triggers that are not used by any tags?
-   - Are there any variables that don't appear to be referenced?
-
-4. **Best Practices**
-   - Are tags properly organized with appropriate triggers?
-   - Are there any paused tags that might be forgotten?
-   - Are there missing triggers for common use cases?
-
-5. **GA4 Configuration** (if applicable)
-   - Is there a GA4 configuration tag?
-   - Are event tags properly linked to the configuration?
-   - Are ecommerce events configured correctly?
-
-6. **Security Concerns**
-   - Are there any custom HTML tags that might pose security risks?
-   - Are there any tags loading external scripts?
-
-Please provide specific recommendations for improvements.`, string(dataJSON)),
-				},
-			},
-		},
-	}, nil
-}
-
-func handleGenerateTrackingPlanPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-	accountID := req.Params.Arguments["accountId"]
-	containerID := req.Params.Arguments["containerId"]
-	workspaceID := req.Params.Arguments["workspaceId"]
-
-	if accountID == "" || containerID == "" || workspaceID == "" {
-		return nil, fmt.Errorf("accountId, containerId, and workspaceId are required")
-	}
-
-	client, err := getClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Fetch all workspace data
-	tags, err := client.ListTags(ctx, accountID, containerID, workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list tags: %w", err)
-	}
-
-	triggers, err := client.ListTriggers(ctx, accountID, containerID, workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list triggers: %w", err)
-	}
-
-	variables, err := client.ListVariables(ctx, accountID, containerID, workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list variables: %w", err)
-	}
-
-	// Create trigger lookup map
-	triggerMap := make(map[string]string)
-	for _, t := range triggers {
-		triggerMap[t.TriggerID] = t.Name
-	}
-
-	// Build the workspace data JSON
-	workspaceData := map[string]any{
-		"tags":       tags,
-		"triggers":   triggers,
-		"variables":  variables,
-		"triggerMap": triggerMap,
-	}
-
-	dataJSON, err := json.MarshalIndent(workspaceData, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-
-	return &mcp.GetPromptResult{
-		Description: "Generate tracking plan documentation",
-		Messages: []*mcp.PromptMessage{
-			{
-				Role: "user",
-				Content: &mcp.TextContent{
-					Text: fmt.Sprintf(`Please generate a comprehensive Markdown tracking plan document from this GTM workspace configuration:
-
-%s
-
-Generate a document with the following structure:
-
-# Tracking Plan
-
-## Overview
-- Summary of the tracking implementation
-- Total counts (tags, triggers, variables)
-
-## Events
-
-For each tag, create a section:
-
-### [Event Name]
-- **Tag Name:** [name]
-- **Tag Type:** [type]
-- **Trigger(s):** [list of trigger names]
-- **Description:** [inferred purpose]
-- **Parameters:** [if applicable]
-
-## Triggers
-
-For each trigger:
-
-### [Trigger Name]
-- **Type:** [type]
-- **Conditions:** [filter conditions if any]
-- **Used by:** [list of tags using this trigger]
-
-## Variables
-
-For each variable:
-
-### [Variable Name]
-- **Type:** [type]
-- **Purpose:** [inferred purpose]
-
-## Data Layer Requirements
-
-List all dataLayer events and variables that need to be pushed from the website.
-
-## Implementation Notes
-
-Any observations about the implementation, dependencies, or recommendations.
-
-Format the output as clean, professional Markdown.`, string(dataJSON)),
-				},
-			},
-		},
-	}, nil
-}
-
-func handleSuggestGA4SetupPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-	goals := req.Params.Arguments["goals"]
-
-	if goals == "" {
-		return nil, fmt.Errorf("goals description is required")
-	}
-
-	// Get the available tag and trigger templates
-	tagTemplates := GetTagTemplates()
-	triggerTemplates := GetTriggerTemplates()
-
-	templatesData := map[string]any{
-		"tagTemplates":     tagTemplates,
-		"triggerTemplates": triggerTemplates,
-	}
-
-	templatesJSON, err := json.MarshalIndent(templatesData, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-
-	return &mcp.GetPromptResult{
-		Description: "GA4 setup recommendations",
-		Messages: []*mcp.PromptMessage{
-			{
-				Role: "user",
-				Content: &mcp.TextContent{
-					Text: fmt.Sprintf(`I need help setting up GA4 tracking in Google Tag Manager for the following goals:
-
-**Tracking Goals:**
-%s
-
-Here are the available tag and trigger templates that can be used:
-
-%s
-
-Please provide:
-
-1. **Recommended Tags**
-   - List each tag needed with:
-     - Tag name (following naming convention: "[Category] - [Action]")
-     - Tag type
-     - Configuration details
-     - Which trigger to use
-
-2. **Recommended Triggers**
-   - List each trigger needed with:
-     - Trigger name
-     - Trigger type
-     - Filter conditions (if any)
-
-3. **Required Variables**
-   - List any Data Layer variables needed
-   - List any built-in variables to enable
-
-4. **Data Layer Requirements**
-   - Specify what dataLayer pushes the website needs to implement
-   - Provide example code snippets for each event
-
-5. **Implementation Order**
-   - Step-by-step order to create the tags, triggers, and variables
-
-6. **Testing Checklist**
-   - Key scenarios to test
-   - Expected GA4 events and parameters
-
-Please be specific about the GTM configuration - use the exact parameter formats shown in the templates.`, goals, string(templatesJSON)),
-				},
-			},
-		},
-	}, nil
-}
-
-func handleFindGalleryTemplatePrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-	templateName := req.Params.Arguments["templateName"]
-
-	if templateName == "" {
-		return nil, fmt.Errorf("templateName is required")
-	}
-
-	return &mcp.GetPromptResult{
-		Description: "Find and import a Community Template Gallery template",
-		Messages: []*mcp.PromptMessage{
-			{
-				Role: "user",
-				Content: &mcp.TextContent{
-					Text: fmt.Sprintf(`I need to find and import the "%s" template from the GTM Community Template Gallery.
-
-**How to find a Community Template:**
-
-1. **Search the web** for: "%s GTM community template github"
-   - Community templates are hosted on GitHub
-   - Look for results from github.com
-
-2. **Extract the repository info** from the GitHub URL:
-   - URL format: github.com/{owner}/{repository}
-   - Example: github.com/iubenda/gtm-cookie-solution
-     - galleryOwner: "iubenda"
-     - galleryRepository: "gtm-cookie-solution"
-
-3. **Browse the Gallery directly** (optional):
-   - Visit: https://tagmanager.google.com/gallery/#/?filter=%s
-   - Click on the template to see details
-
-**Common templates for reference:**
-
-| Template | galleryOwner | galleryRepository |
-|----------|--------------|-------------------|
-| iubenda Cookie Solution | iubenda | gtm-cookie-solution |
-| Cookiebot | nicktue-gtm-templates | cookiebot-gtm |
-| Facebook Pixel | nicktue-gtm-templates | facebook-pixel |
-
-**Once you have the owner and repository:**
-
-Use the import_gallery_template tool:
-- galleryOwner: [owner from GitHub]
-- galleryRepository: [repository from GitHub]
-
-The tool will return the template type (cvt_{containerId}_{templateId}) to use when creating tags.
-
-Please search for the "%s" template and provide the galleryOwner and galleryRepository values.`, templateName, templateName, templateName, templateName),
-				},
-			},
-		},
-	}, nil
-}

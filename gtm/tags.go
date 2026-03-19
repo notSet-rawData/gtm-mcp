@@ -24,6 +24,8 @@ type Tag struct {
 	TeardownTag       []TagSequenceRef `json:"teardownTag,omitempty"`
 	Paused            bool             `json:"paused,omitempty"`
 	Path              string           `json:"path"`
+	// Parameter contains tag configuration (pixel IDs, HTML code, measurement IDs, etc.).
+	Parameter any `json:"parameter,omitempty"`
 }
 
 // ListTags returns all tags in a workspace.
@@ -73,6 +75,9 @@ func toTag(t *tagmanager.Tag) Tag {
 		BlockingTriggerID: t.BlockingTriggerId,
 		Paused:            t.Paused,
 		Path:              t.Path,
+	}
+	if len(t.Parameter) > 0 {
+		tag.Parameter = t.Parameter
 	}
 	for _, s := range t.SetupTag {
 		tag.SetupTag = append(tag.SetupTag, TagSequenceRef{

@@ -37,6 +37,7 @@ type TokenInfo struct {
 // AuthState holds temporary state during OAuth flow.
 type AuthState struct {
 	State        string
+	ClientState  string    // Client's original state parameter (stored separately, not concatenated)
 	CodeVerifier string
 	RedirectURI  string
 	ClientID     string
@@ -63,6 +64,7 @@ type TokenStore interface {
 	GetTokenByAccessIncludeExpired(accessToken string) (*TokenInfo, error)
 	GetTokenByRefresh(refreshToken string) (*TokenInfo, error)
 	DeleteToken(accessToken string) error
+	RotateToken(oldAccessToken string, newToken *TokenInfo) error
 	UpdateGoogleToken(accessToken string, googleToken *oauth2.Token) error
 
 	// State operations (for OAuth flow)
@@ -183,6 +185,27 @@ func (s *MemoryTokenStore) DeleteToken(accessToken string) error {
 		delete(s.refreshIndex, info.RefreshToken)
 	}
 	delete(s.tokens, accessToken)
+
+	return nil
+}
+
+// RotateToken atomically replaces an old token with a new one.
+// Store new first, then delete old — prevents window where neither exists.
+func (s *MemoryTokenStore) RotateToken(oldAccessToken string, newToken *TokenInfo) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Store new token first
+	s.tokens[newToken.AccessToken] = newToken
+	if newToken.RefreshToken != "" {
+		s.refreshIndex[newToken.RefreshToken] = newToken.AccessToken
+	}
+
+	// Then delete old token
+	if oldInfo, ok := s.tokens[oldAccessToken]; ok {
+		delete(s.refreshIndex, oldInfo.RefreshToken)
+	}
+	delete(s.tokens, oldAccessToken)
 
 	return nil
 }
@@ -315,18 +338,25 @@ func (s *MemoryTokenStore) cleanup(ctx context.Context) {
 					delete(s.states, stateValue)
 				}
 			}
-			// Evict oldest clients if over limit
+			// Evict oldest 10% of clients if over limit
 			if len(s.clients) > maxClients {
-				var oldest string
-				var oldestTime time.Time
-				for id, client := range s.clients {
-					if oldest == "" || client.CreatedAt.Before(oldestTime) {
-						oldest = id
-						oldestTime = client.CreatedAt
-					}
+				evictCount := len(s.clients) / 10
+				if evictCount < 1 {
+					evictCount = 1
 				}
-				if oldest != "" {
-					delete(s.clients, oldest)
+				// Collect all clients sorted by age (simple: iterate N times)
+				for i := 0; i < evictCount; i++ {
+					var oldest string
+					var oldestTime time.Time
+					for id, client := range s.clients {
+						if oldest == "" || client.CreatedAt.Before(oldestTime) {
+							oldest = id
+							oldestTime = client.CreatedAt
+						}
+					}
+					if oldest != "" {
+						delete(s.clients, oldest)
+					}
 				}
 			}
 			s.mu.Unlock()

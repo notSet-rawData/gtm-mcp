@@ -12,7 +12,7 @@ import (
 // authorization_endpoint and token_endpoint returned in 401 responses match
 // those in the metadata endpoint response.
 func TestIntegration_MetadataAndMiddleware401_Consistency(t *testing.T) {
-	baseURL := "https://mcp.gtmeditor.com"
+	baseURL := "https://mcp.notset.es"
 	store := newMockTokenStore()
 	logger := testLogger()
 
@@ -55,7 +55,7 @@ func TestIntegration_MetadataAndMiddleware401_Consistency(t *testing.T) {
 // TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver verifies
 // consistency when using a URLResolver with an allowed host.
 func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing.T) {
-	baseURL := "https://mcp.gtmeditor.com"
+	baseURL := "https://mcp.notset.es"
 	resolver := NewURLResolver(baseURL, []string{"gtm-mcp:8080"})
 	store := newMockTokenStore()
 	logger := testLogger()
@@ -133,7 +133,7 @@ func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing
 // TestIntegration_UntrustedHostDoesNotLeakIntoResponses ensures that an
 // untrusted Host header never appears in any response.
 func TestIntegration_UntrustedHostDoesNotLeakIntoResponses(t *testing.T) {
-	baseURL := "https://mcp.gtmeditor.com"
+	baseURL := "https://mcp.notset.es"
 	resolver := NewURLResolver(baseURL, nil)
 	store := newMockTokenStore()
 	logger := testLogger()
@@ -181,13 +181,13 @@ func TestIntegration_ResourceMetadata_GeminiCLICompatibility(t *testing.T) {
 	}{
 		{
 			name:         "root URL without slash",
-			baseURL:      "https://mcp.gtmeditor.com",
-			wantResource: "https://mcp.gtmeditor.com/",
+			baseURL:      "https://mcp.notset.es",
+			wantResource: "https://mcp.notset.es/",
 		},
 		{
 			name:         "root URL with slash",
-			baseURL:      "https://mcp.gtmeditor.com/",
-			wantResource: "https://mcp.gtmeditor.com/",
+			baseURL:      "https://mcp.notset.es/",
+			wantResource: "https://mcp.notset.es/",
 		},
 		{
 			name:         "localhost with port",

@@ -131,10 +131,7 @@ func tryAutoRefresh(ctx context.Context, store TokenStore, google *GoogleProvide
 		return nil, fmt.Errorf("Token expired")
 	}
 
-	// Delete old token
-	_ = store.DeleteToken(accessToken)
-
-	// Store new token
+	// Atomically rotate: store new then delete old in one operation
 	newTokenInfo := &TokenInfo{
 		AccessToken:      newAccessToken,
 		RefreshToken:     newRefreshToken,
@@ -145,8 +142,8 @@ func tryAutoRefresh(ctx context.Context, store TokenStore, google *GoogleProvide
 		CreatedAt:        time.Now(),
 	}
 
-	if err := store.StoreToken(newTokenInfo); err != nil {
-		logger.Warn("auth_auto_refresh_failed", "reason", "store_failed", "error", err)
+	if err := store.RotateToken(accessToken, newTokenInfo); err != nil {
+		logger.Warn("auth_auto_refresh_failed", "reason", "rotate_failed", "error", err)
 		return nil, fmt.Errorf("Token expired")
 	}
 

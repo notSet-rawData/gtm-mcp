@@ -125,17 +125,17 @@ func TestRateLimiter_PerIPIsolation(t *testing.T) {
 }
 
 func TestRateLimiter_XForwardedFor(t *testing.T) {
-	// Create rate limiter: 1 request per second, burst of 1
-	rl := NewRateLimiter(1, 1)
+	// Create rate limiter with trusted proxy "10.0.0.1"
+	rl := NewRateLimiter(1, 1, "10.0.0.1")
 
 	handler := rl.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
 	}))
 
-	// First request with X-Forwarded-For
+	// First request from trusted proxy with X-Forwarded-For
 	req1 := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req1.RemoteAddr = "10.0.0.1:1234" // Proxy IP
+	req1.RemoteAddr = "10.0.0.1:1234" // Trusted proxy
 	req1.Header.Set("X-Forwarded-For", "203.0.113.1")
 	w1 := httptest.NewRecorder()
 	handler.ServeHTTP(w1, req1)
@@ -144,15 +144,27 @@ func TestRateLimiter_XForwardedFor(t *testing.T) {
 		t.Errorf("first request: expected status 200, got %d", w1.Code)
 	}
 
-	// Second request with same X-Forwarded-For (should be rate limited)
+	// Second request from same trusted proxy with same X-Forwarded-For (should be rate limited)
 	req2 := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req2.RemoteAddr = "10.0.0.2:5678" // Different proxy IP
+	req2.RemoteAddr = "10.0.0.1:5678" // Same trusted proxy
 	req2.Header.Set("X-Forwarded-For", "203.0.113.1") // Same client IP
 	w2 := httptest.NewRecorder()
 	handler.ServeHTTP(w2, req2)
 
 	if w2.Code != http.StatusTooManyRequests {
 		t.Errorf("second request: expected status 429, got %d", w2.Code)
+	}
+
+	// Third request from UNTRUSTED proxy — should use RemoteAddr, not X-Forwarded-For
+	req3 := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req3.RemoteAddr = "10.0.0.99:9999" // Not a trusted proxy
+	req3.Header.Set("X-Forwarded-For", "203.0.113.1") // Same client IP but untrusted
+	w3 := httptest.NewRecorder()
+	handler.ServeHTTP(w3, req3)
+
+	// Should succeed because 10.0.0.99 is treated as a new IP (not trusted proxy)
+	if w3.Code != http.StatusOK {
+		t.Errorf("untrusted proxy request: expected status 200, got %d", w3.Code)
 	}
 }
 

@@ -3,79 +3,20 @@ package gtm
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"sync"
+	"time"
 
 	"gtm-mcp-server/auth"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// RegisterTools adds all GTM tools to the MCP server.
+// RegisterTools adds the unified GTM gateway tool to the MCP server.
+// All 20 resources (~90 actions) are accessible through 1 single "gtm" tool.
 func RegisterTools(server *mcp.Server) {
-	// Read operations
-	registerListAccounts(server)
-	registerListContainers(server)
-	registerListWorkspaces(server)
-	registerListTags(server)
-	registerGetTag(server)
-	registerListTriggers(server)
-	registerGetTrigger(server)
-	registerListVariables(server)
-	registerGetVariable(server)
-	registerListFolders(server)
-	registerGetFolderEntities(server)
-	registerListTemplates(server)
-	registerGetTemplate(server)
-	registerListVersions(server)
-
-	// Write operations
-	registerCreateTag(server)
-	registerUpdateTag(server)
-	registerDeleteTag(server)
-	registerCreateTrigger(server)
-	registerUpdateTrigger(server)
-	registerDeleteTrigger(server)
-	registerCreateVariable(server)
-	registerUpdateVariable(server)
-	registerDeleteVariable(server)
-	registerCreateContainer(server)
-	registerDeleteContainer(server)
-	registerCreateWorkspace(server)
-
-	// Workspace status
-	registerGetWorkspaceStatus(server)
-
-	// Version operations
-	registerCreateVersion(server)
-	registerPublishVersion(server)
-
-	// Template operations
-	registerImportGalleryTemplate(server)
-	registerCreateTemplate(server)
-	registerUpdateTemplate(server)
-	registerDeleteTemplate(server)
-
-	// Built-in variables
-	registerListBuiltInVariables(server)
-	registerEnableBuiltInVariables(server)
-	registerDisableBuiltInVariables(server)
-
-	// Clients (server-side containers)
-	registerListClients(server)
-	registerGetClient(server)
-	registerCreateClient(server)
-	registerUpdateClient(server)
-	registerDeleteClient(server)
-
-	// Transformations (server-side containers)
-	registerListTransformations(server)
-	registerGetTransformation(server)
-	registerCreateTransformation(server)
-	registerUpdateTransformation(server)
-	registerDeleteTransformation(server)
-
-	// Templates (help LLMs with correct parameter formats)
-	registerGetTagTemplates(server)
-	registerGetTriggerTemplates(server)
+	// Single gateway tool — all resources routed via resource+action params
+	registerGateway(server)
 
 	// Resources (URI-based read access)
 	RegisterResources(server)
@@ -84,11 +25,47 @@ func RegisterTools(server *mcp.Server) {
 	RegisterPrompts(server)
 }
 
+// getTokenInfo wraps auth.GetTokenInfo for use by gateway.go without import cycles.
+func getTokenInfo(ctx context.Context) interface{} {
+	return auth.GetTokenInfo(ctx)
+}
+
+type clientEntry struct {
+	client    *Client
+	expiresAt time.Time
+}
+
+var clientPool sync.Map
+
+func init() {
+	go func() {
+		for {
+			time.Sleep(10 * time.Minute)
+			now := time.Now()
+			clientPool.Range(func(key, value any) bool {
+				if entry, ok := value.(clientEntry); ok {
+					if now.After(entry.expiresAt) {
+						clientPool.Delete(key)
+					}
+				}
+				return true
+			})
+		}
+	}()
+}
+
 // getClient creates a GTM client from the request context with auto-refreshing tokens.
 func getClient(ctx context.Context) (*Client, error) {
 	tokenInfo := auth.GetTokenInfo(ctx)
 	if tokenInfo == nil || tokenInfo.GoogleToken == nil {
 		return nil, fmt.Errorf("not authenticated - please authenticate with Google first")
+	}
+
+	if value, ok := clientPool.Load(tokenInfo.AccessToken); ok {
+		if entry, ok := value.(clientEntry); ok && time.Now().Before(entry.expiresAt) {
+			return entry.client, nil
+		}
+		clientPool.Delete(tokenInfo.AccessToken)
 	}
 
 	store := auth.GetTokenStore(ctx)
@@ -102,5 +79,15 @@ func getClient(ctx context.Context) (*Client, error) {
 		tokenInfo.GoogleToken,
 	)
 
-	return NewClient(ctx, tokenSource)
+	client, err := NewClient(ctx, tokenSource, slog.Default())
+	if err != nil {
+		return nil, err
+	}
+
+	clientPool.Store(tokenInfo.AccessToken, clientEntry{
+		client:    client,
+		expiresAt: tokenInfo.ExpiresAt,
+	})
+
+	return client, nil
 }

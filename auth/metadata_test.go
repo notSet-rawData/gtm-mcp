@@ -8,7 +8,7 @@ import (
 )
 
 func TestMetadataHandler_StaticBaseURL(t *testing.T) {
-	handler := MetadataHandler("https://mcp.gtmeditor.com", nil)
+	handler := MetadataHandler("https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server", nil)
 	w := httptest.NewRecorder()
@@ -24,23 +24,23 @@ func TestMetadataHandler_StaticBaseURL(t *testing.T) {
 		t.Fatalf("failed to decode: %v", err)
 	}
 
-	if meta.Issuer != "https://mcp.gtmeditor.com" {
-		t.Errorf("issuer = %q, want https://mcp.gtmeditor.com", meta.Issuer)
+	if meta.Issuer != "https://mcp.notset.es" {
+		t.Errorf("issuer = %q, want https://mcp.notset.es", meta.Issuer)
 	}
-	if meta.AuthorizationEndpoint != "https://mcp.gtmeditor.com/authorize" {
+	if meta.AuthorizationEndpoint != "https://mcp.notset.es/authorize" {
 		t.Errorf("authorization_endpoint = %q", meta.AuthorizationEndpoint)
 	}
-	if meta.TokenEndpoint != "https://mcp.gtmeditor.com/token" {
+	if meta.TokenEndpoint != "https://mcp.notset.es/token" {
 		t.Errorf("token_endpoint = %q", meta.TokenEndpoint)
 	}
-	if meta.RegistrationEndpoint != "https://mcp.gtmeditor.com/register" {
+	if meta.RegistrationEndpoint != "https://mcp.notset.es/register" {
 		t.Errorf("registration_endpoint = %q", meta.RegistrationEndpoint)
 	}
 }
 
 func TestMetadataHandler_DynamicResolver_TrustedHost(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", []string{"gtm-mcp:8080"})
-	handler := MetadataHandler("https://mcp.gtmeditor.com", resolver)
+	resolver := NewURLResolver("https://mcp.notset.es", []string{"gtm-mcp:8080"})
+	handler := MetadataHandler("https://mcp.notset.es", resolver)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server", nil)
 	req.Host = "gtm-mcp:8080"
@@ -60,8 +60,8 @@ func TestMetadataHandler_DynamicResolver_TrustedHost(t *testing.T) {
 }
 
 func TestMetadataHandler_DynamicResolver_UntrustedHost(t *testing.T) {
-	resolver := NewURLResolver("https://mcp.gtmeditor.com", nil)
-	handler := MetadataHandler("https://mcp.gtmeditor.com", resolver)
+	resolver := NewURLResolver("https://mcp.notset.es", nil)
+	handler := MetadataHandler("https://mcp.notset.es", resolver)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server", nil)
 	req.Host = "evil.com"
@@ -74,13 +74,13 @@ func TestMetadataHandler_DynamicResolver_UntrustedHost(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&meta)
 
 	// Should fall back to configured URL, not use evil.com
-	if meta.Issuer != "https://mcp.gtmeditor.com" {
-		t.Errorf("issuer = %q, want https://mcp.gtmeditor.com (should not use untrusted host)", meta.Issuer)
+	if meta.Issuer != "https://mcp.notset.es" {
+		t.Errorf("issuer = %q, want https://mcp.notset.es (should not use untrusted host)", meta.Issuer)
 	}
 }
 
 func TestMetadataHandler_MethodNotAllowed(t *testing.T) {
-	handler := MetadataHandler("https://mcp.gtmeditor.com", nil)
+	handler := MetadataHandler("https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/.well-known/oauth-authorization-server", nil)
 	w := httptest.NewRecorder()
@@ -93,7 +93,7 @@ func TestMetadataHandler_MethodNotAllowed(t *testing.T) {
 }
 
 func TestMetadataHandler_IssuerHasNoTrailingSlash(t *testing.T) {
-	handler := MetadataHandler("https://mcp.gtmeditor.com", nil)
+	handler := MetadataHandler("https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server", nil)
 	w := httptest.NewRecorder()
@@ -104,13 +104,13 @@ func TestMetadataHandler_IssuerHasNoTrailingSlash(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&meta)
 
 	// RFC 8414: issuer should NOT have a trailing slash
-	if meta.Issuer != "https://mcp.gtmeditor.com" {
+	if meta.Issuer != "https://mcp.notset.es" {
 		t.Errorf("issuer = %q, should not have trailing slash", meta.Issuer)
 	}
 }
 
 func TestMetadataHandler_CacheHeaders(t *testing.T) {
-	handler := MetadataHandler("https://mcp.gtmeditor.com", nil)
+	handler := MetadataHandler("https://mcp.notset.es", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server", nil)
 	w := httptest.NewRecorder()

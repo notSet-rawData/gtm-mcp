@@ -58,6 +58,22 @@ func (s *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Validate redirect URI domains against allowlist if configured
+	if len(s.allowedDCRDomains) > 0 {
+		for _, uri := range req.RedirectURIs {
+			parsed, _ := url.Parse(uri)
+			host := strings.Split(parsed.Host, ":")[0] // Strip port
+			if host == "localhost" || host == "127.0.0.1" {
+				continue // Always allow localhost for development
+			}
+			if !s.allowedDCRDomains[host] {
+				s.logger.Warn("dcr_domain_rejected", "domain", host, "uri", uri)
+				s.registrationError(w, "invalid_redirect_uri", "Domain not in allowlist: "+host)
+				return
+			}
+		}
+	}
+
 	// Generate client_id
 	clientID, err := GenerateToken(16)
 	if err != nil {

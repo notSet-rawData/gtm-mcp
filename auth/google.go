@@ -17,20 +17,27 @@ type GoogleProvider struct {
 
 // GoogleScopes defines the scopes needed for GTM API access.
 var GoogleScopes = []string{
+	"https://www.googleapis.com/auth/tagmanager.readonly",
 	"https://www.googleapis.com/auth/tagmanager.delete.containers",
 	"https://www.googleapis.com/auth/tagmanager.edit.containers",
 	"https://www.googleapis.com/auth/tagmanager.edit.containerversions",
 	"https://www.googleapis.com/auth/tagmanager.publish",
+	"https://www.googleapis.com/auth/tagmanager.manage.users",
 }
 
 // NewGoogleProvider creates a new Google OAuth provider.
-func NewGoogleProvider(clientID, clientSecret, redirectURI string) *GoogleProvider {
+// If customScopes is non-empty, those scopes are used instead of the defaults.
+func NewGoogleProvider(clientID, clientSecret, redirectURI string, customScopes ...string) *GoogleProvider {
+	scopes := GoogleScopes
+	if len(customScopes) > 0 {
+		scopes = customScopes
+	}
 	return &GoogleProvider{
 		config: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			RedirectURL:  redirectURI,
-			Scopes:       GoogleScopes,
+			Scopes:       scopes,
 			Endpoint:     google.Endpoint,
 		},
 	}

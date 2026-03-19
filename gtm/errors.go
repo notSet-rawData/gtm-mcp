@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"google.golang.org/api/googleapi"
@@ -19,6 +20,7 @@ var (
 
 // retryWithBackoff executes fn with exponential backoff for rate limits.
 // Returns the result or final error after maxRetries attempts.
+// maxRetries should be set once at startup via config (not read from env at runtime).
 func retryWithBackoff[T any](ctx context.Context, maxRetries int, fn func() (T, error)) (T, error) {
 	var zero T
 	var lastErr error
@@ -41,10 +43,17 @@ func retryWithBackoff[T any](ctx context.Context, maxRetries int, fn func() (T, 
 		if errors.As(err, &apiErr) {
 			if apiErr.Code == 403 || apiErr.Code == 429 {
 				if attempt < maxRetries {
-					waitTime := time.Duration(1<<uint(attempt)) * time.Second
-					if waitTime > 32*time.Second {
-						waitTime = 32 * time.Second
+					baseWait := time.Duration(1<<uint(attempt)) * time.Second
+					if baseWait > 32*time.Second {
+						baseWait = 32 * time.Second
 					}
+					
+					// Add jitter (up to 25% of baseWait)
+					var jitterMs int64
+					if baseWait > 0 {
+						jitterMs = rand.Int63n(int64(baseWait) / 4)
+					}
+					waitTime := baseWait + time.Duration(jitterMs)
 
 					select {
 					case <-time.After(waitTime):

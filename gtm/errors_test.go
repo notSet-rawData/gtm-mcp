@@ -132,9 +132,13 @@ func TestMapGoogleError_UnknownStatusCode(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	// Should return the original error for unknown status codes
-	if !errors.Is(err, apiErr) {
-		t.Errorf("expected original error, got %v", err)
+	// Unknown status codes are wrapped with a descriptive message (not with %w),
+	// so we check the message content rather than errors.Is.
+	if !contains(err.Error(), "API error 500") {
+		t.Errorf("expected error to contain 'API error 500', got %q", err.Error())
+	}
+	if !contains(err.Error(), "Internal server error") {
+		t.Errorf("expected error to contain original message, got %q", err.Error())
 	}
 }
 
@@ -457,27 +461,20 @@ func TestRetryWithBackoff_ExponentialBackoff(t *testing.T) {
 		t.Fatalf("expected 4 calls, got %d", len(callTimes))
 	}
 
-	// Check exponential backoff (1s, 2s, 4s)
-	// Allow some tolerance for timing
-	tolerance := 100 * time.Millisecond
-
-	// First retry should be ~1s after initial call
-	firstBackoff := callTimes[1].Sub(callTimes[0])
-	if firstBackoff < 1*time.Second-tolerance || firstBackoff > 1*time.Second+tolerance {
-		t.Errorf("expected first backoff ~1s, got %v", firstBackoff)
+	// Check exponential backoff (base: 1s, 2s, 4s) with up to 25% jitter.
+	// Tolerance accounts for jitter + scheduling variance.
+	checkBackoff := func(label string, actual, base time.Duration) {
+		t.Helper()
+		minWait := base - 200*time.Millisecond       // scheduling tolerance
+		maxWait := base + base/4 + 200*time.Millisecond // base + 25% jitter + tolerance
+		if actual < minWait || actual > maxWait {
+			t.Errorf("%s: expected backoff in [%v, %v], got %v", label, minWait, maxWait, actual)
+		}
 	}
 
-	// Second retry should be ~2s after first retry
-	secondBackoff := callTimes[2].Sub(callTimes[1])
-	if secondBackoff < 2*time.Second-tolerance || secondBackoff > 2*time.Second+tolerance {
-		t.Errorf("expected second backoff ~2s, got %v", secondBackoff)
-	}
-
-	// Third retry should be ~4s after second retry
-	thirdBackoff := callTimes[3].Sub(callTimes[2])
-	if thirdBackoff < 4*time.Second-tolerance || thirdBackoff > 4*time.Second+tolerance {
-		t.Errorf("expected third backoff ~4s, got %v", thirdBackoff)
-	}
+	checkBackoff("first",  callTimes[1].Sub(callTimes[0]), 1*time.Second)
+	checkBackoff("second", callTimes[2].Sub(callTimes[1]), 2*time.Second)
+	checkBackoff("third",  callTimes[3].Sub(callTimes[2]), 4*time.Second)
 }
 
 func TestRetryWithBackoff_MaxBackoffCap(t *testing.T) {

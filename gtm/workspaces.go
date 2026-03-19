@@ -41,3 +41,51 @@ func toWorkspaces(workspaces []*tagmanager.Workspace) []Workspace {
 	}
 	return result
 }
+
+// SyncStatus represents the result of syncing a workspace.
+type SyncStatus struct {
+	HasConflicts       bool     `json:"hasConflicts"`
+	ConflictCount      int      `json:"conflictCount"`
+	ConflictingEntities []string `json:"conflictingEntities,omitempty"`
+}
+
+// SyncWorkspace syncs a workspace to the latest container version.
+func (c *Client) SyncWorkspace(ctx context.Context, accountID, containerID, workspaceID string) (*SyncStatus, error) {
+	path := BuildWorkspacePath(accountID, containerID, workspaceID)
+
+	resp, err := c.Service.Accounts.Containers.Workspaces.Sync(path).Context(ctx).Do()
+	if err != nil {
+		return nil, mapGoogleError(err)
+	}
+
+	status := &SyncStatus{
+		HasConflicts:  len(resp.MergeConflict) > 0,
+		ConflictCount: len(resp.MergeConflict),
+	}
+
+	for _, mc := range resp.MergeConflict {
+		entityName := ""
+		if mc.EntityInWorkspace != nil {
+			if mc.EntityInWorkspace.Tag != nil {
+				entityName = "tag:" + mc.EntityInWorkspace.Tag.Name
+			} else if mc.EntityInWorkspace.Trigger != nil {
+				entityName = "trigger:" + mc.EntityInWorkspace.Trigger.Name
+			} else if mc.EntityInWorkspace.Variable != nil {
+				entityName = "variable:" + mc.EntityInWorkspace.Variable.Name
+			}
+		} else if mc.EntityInBaseVersion != nil {
+			if mc.EntityInBaseVersion.Tag != nil {
+				entityName = "tag:" + mc.EntityInBaseVersion.Tag.Name
+			} else if mc.EntityInBaseVersion.Trigger != nil {
+				entityName = "trigger:" + mc.EntityInBaseVersion.Trigger.Name
+			} else if mc.EntityInBaseVersion.Variable != nil {
+				entityName = "variable:" + mc.EntityInBaseVersion.Variable.Name
+			}
+		}
+		if entityName != "" {
+			status.ConflictingEntities = append(status.ConflictingEntities, entityName)
+		}
+	}
+
+	return status, nil
+}

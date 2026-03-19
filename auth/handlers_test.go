@@ -723,7 +723,7 @@ func TestServer_CallbackHandler_MissingCodeOrState(t *testing.T) {
 	}
 }
 
-func TestServer_CallbackHandler_InvalidStateFormat(t *testing.T) {
+func TestServer_CallbackHandler_UnknownState(t *testing.T) {
 	store := NewMemoryTokenStore()
 	defer store.Close()
 
@@ -732,7 +732,7 @@ func TestServer_CallbackHandler_InvalidStateFormat(t *testing.T) {
 
 	params := url.Values{}
 	params.Set("code", "test-code")
-	params.Set("state", "invalid-state-no-pipe")
+	params.Set("state", "unknown-state")
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth/callback?"+params.Encode(), nil)
 	w := httptest.NewRecorder()
@@ -743,8 +743,8 @@ func TestServer_CallbackHandler_InvalidStateFormat(t *testing.T) {
 		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
 	}
 
-	if !strings.Contains(w.Body.String(), "Invalid state format") {
-		t.Error("expected Invalid state format error")
+	if !strings.Contains(w.Body.String(), "Invalid or expired state") {
+		t.Error("expected Invalid or expired state error")
 	}
 }
 

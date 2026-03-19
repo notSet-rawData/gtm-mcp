@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -29,10 +30,25 @@ type Config struct {
 
 	// Token configuration
 	AccessTokenTTL time.Duration
+	
+	// API Retry configuration
+	MaxRetries int
 
 	// AllowedHosts lists additional trusted hostnames for dynamic base URL resolution.
 	// Enables Docker-to-Docker contexts where the server is reached via internal aliases.
 	AllowedHosts []string
+
+	// TrustedProxies lists IP addresses/CIDRs of trusted reverse proxies.
+	// Only trust X-Forwarded-For from these sources. Empty = trust RemoteAddr only.
+	TrustedProxies []string
+
+	// GoogleScopes configures which GTM API scopes to request.
+	// Default: all GTM scopes (edit, readonly, publish, delete).
+	GoogleScopes []string
+
+	// AllowedDCRDomains restricts which domains can register via DCR.
+	// Empty = accept any valid HTTPS domain (less secure).
+	AllowedDCRDomains []string
 }
 
 // Load reads configuration from environment variables.
@@ -53,13 +69,43 @@ func Load() (*Config, error) {
 		LogLevel:          getEnv("LOG_LEVEL", "info"),
 		AccessTokenTTL:    getEnvDuration("ACCESS_TOKEN_TTL", 8*time.Hour),
 		AllowedHosts:      getEnvList("ALLOWED_HOSTS"),
+		TrustedProxies:    getEnvList("TRUSTED_PROXIES"),
+		GoogleScopes:      getEnvList("GOOGLE_SCOPES"),
+		AllowedDCRDomains: getEnvList("ALLOWED_DCR_DOMAINS"),
+		MaxRetries:        getEnvInt("MAX_RETRIES", 3),
 	}
 
-	// Validation is deferred to when auth is actually needed
-	// This allows the server to start and respond to initialize/ping
-	// even without OAuth credentials configured
+	// Validate structural config
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 
 	return cfg, nil
+}
+
+// Validate checks structural configuration constraints (format, range, etc).
+// This runs at startup regardless of whether auth is configured.
+func (c *Config) Validate() error {
+	// Validate PORT range
+	if c.Port < 1 || c.Port > 65535 {
+		return fmt.Errorf("PORT must be between 1 and 65535 (got %d)", c.Port)
+	}
+
+	// Validate BASE_URL format
+	if c.BaseURL != "" {
+		parsed, err := url.Parse(c.BaseURL)
+		if err != nil {
+			return fmt.Errorf("BASE_URL is not a valid URL: %w", err)
+		}
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return fmt.Errorf("BASE_URL must use http:// or https:// scheme (got %q)", parsed.Scheme)
+		}
+		if parsed.Host == "" {
+			return fmt.Errorf("BASE_URL must include a host")
+		}
+	}
+
+	return nil
 }
 
 // ValidateAuth checks if OAuth credentials are configured.
@@ -72,6 +118,9 @@ func (c *Config) ValidateAuth() error {
 	}
 	if c.JWTSecret == "" {
 		return fmt.Errorf("JWT_SECRET is required for authentication")
+	}
+	if len(c.JWTSecret) < 32 {
+		return fmt.Errorf("JWT_SECRET must be at least 32 characters (got %d)", len(c.JWTSecret))
 	}
 	return nil
 }

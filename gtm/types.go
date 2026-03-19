@@ -59,10 +59,11 @@ type Condition struct {
 
 // VariableInput represents input for creating a variable.
 type VariableInput struct {
-	Name      string      `json:"name"`
-	Type      string      `json:"type"`
-	Parameter []Parameter `json:"parameter,omitempty"`
-	Notes     string      `json:"notes,omitempty"`
+	Name           string      `json:"name"`
+	Type           string      `json:"type"`
+	Parameter      []Parameter `json:"parameter,omitempty"`
+	Notes          string      `json:"notes,omitempty"`
+	ParentFolderID string      `json:"parentFolderId,omitempty"`
 }
 
 // VersionInput represents input for creating a version.
@@ -100,9 +101,10 @@ type CreatedVariable struct {
 
 // CreatedVersion represents the result of creating a version.
 type CreatedVersion struct {
-	VersionID string `json:"containerVersionId"`
-	Name      string `json:"name"`
-	Path      string `json:"path"`
+	VersionID     string `json:"containerVersionId"`
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	CompilerError bool   `json:"compilerError,omitempty"`
 }
 
 // BuiltInVariable represents an enabled built-in variable in a workspace.
@@ -172,4 +174,40 @@ type CreatedTransformation struct {
 	Type             string `json:"type,omitempty"`
 	Path             string `json:"path"`
 	Fingerprint      string `json:"fingerprint"`
+}
+
+// EnvironmentInput represents input for creating/updating an environment.
+type EnvironmentInput struct {
+	Name               string `json:"name"`
+	Description        string `json:"description,omitempty"`
+	ContainerVersionID string `json:"containerVersionId,omitempty"`
+	EnableDebug        bool   `json:"enableDebug,omitempty"`
+}
+
+// UserPermission represents a GTM user permission entry.
+type UserPermission struct {
+	PermissionID    string            `json:"permissionId"`
+	EmailAddress    string            `json:"emailAddress"`
+	AccountID       string            `json:"accountId"`
+	AccountAccess   *AccountAccess    `json:"accountAccess,omitempty"`
+	ContainerAccess []ContainerAccess `json:"containerAccess,omitempty"`
+	Path            string            `json:"path"`
+}
+
+// AccountAccess represents the account-level permission.
+type AccountAccess struct {
+	Permission string `json:"permission"` // noAccess, read, edit, publish, admin
+}
+
+// ContainerAccess represents container-level permission for a user.
+type ContainerAccess struct {
+	ContainerID string `json:"containerId"`
+	Permission  string `json:"permission"` // noAccess, read, edit, publish, approve
+}
+
+// UserPermissionInput represents input for creating/updating a user permission.
+type UserPermissionInput struct {
+	EmailAddress    string            `json:"emailAddress"`
+	AccountAccess   *AccountAccess    `json:"accountAccess,omitempty"`
+	ContainerAccess []ContainerAccess `json:"containerAccess,omitempty"`
 }
