@@ -76,6 +76,12 @@ func main() {
 
 Usage: call tool "gtm" with {"resource": "<resource>", "action": "<action>", "args": {<params>}}
 
+IMPORTANT BEHAVIORS:
+  - UPDATE operations are PARTIAL: omitted fields are preserved from the existing entity. You only need to send fields you want to change.
+  - To ADD entries to a list parameter (e.g. RegEx table rows), first GET the entity to see current params, then send the FULL updated parameter array.
+  - Community template tags use container-specific type IDs like "cvt_CONTAINERID_NNN". Use templates_ref to discover them. NEVER guess type names.
+  - Parameters use a nested structure: {"type": "template|boolean|integer|list|map", "key": "...", "value": "...", "list": [...], "map": [...]}
+
 Resources & actions:
   account → list
   container → list, create, delete
@@ -96,14 +102,7 @@ Resources & actions:
   gtag_config → list, get, create, update, delete
   templates_ref → tag_templates, trigger_templates
   ping → (no action needed)
-  auth_status → (no action needed)
-
-Examples:
-  List accounts: {"resource": "account", "action": "list", "args": {}}
-  Create a tag: {"resource": "tag", "action": "create", "args": {"accountId": "...", "containerId": "...", "workspaceId": "...", "name": "My Tag", ...}}
-  Check auth: {"resource": "auth_status", "action": "", "args": {}}
-
-Legacy tool names (e.g. "list_accounts", "tag") are supported via backward compatibility middleware.`,
+  auth_status → (no action needed)`,
 	})
 
 	// Add middleware (order matters: compat first, then logging, then audit)

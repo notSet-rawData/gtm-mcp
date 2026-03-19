@@ -24,38 +24,67 @@ func registerGateway(server *mcp.Server) {
 		Name: "gtm",
 		Description: `Unified Google Tag Manager gateway. ALL GTM operations go through this single tool.
 
-Parameters:
-  resource: The entity type (account, container, workspace, tag, trigger, variable, folder, template, built_in_variable, client, transformation, environment, user_permission, version, destination, zone, gtag_config, templates_ref, ping, auth_status)
-  action: The operation (list, get, create, update, delete, revert, etc.)
-  args: Resource-specific parameters as a JSON object
+USAGE: {"resource": "<resource>", "action": "<action>", "args": {<params>}}
 
-Resource/Action reference:
-  account        → list
-  container      → list, create, delete
-  workspace      → list, create, status
-  tag            → list, get, create, update, delete, revert
-  trigger        → list, get, create, update, delete, revert
-  variable       → list, get, create, update, delete, revert
-  folder         → list, get, create, update, delete, move, audit, revert
-  template       → list, get, create, update, delete, import, revert
+RESOURCES & ACTIONS:
+  account → list
+  container → list, create, delete
+  workspace → list, create, status
+  tag → list, get, create, update, delete, revert
+  trigger → list, get, create, update, delete, revert
+  variable → list, get, create, update, delete, revert
+  folder → list, get, create, update, delete, move, audit, revert
+  template → list, get, create, update, delete, import, revert
   built_in_variable → list, enable, disable, revert
-  client         → list, get, create, update, delete, revert
+  client → list, get, create, update, delete, revert
   transformation → list, get, create, update, delete, revert
-  environment    → list, get, create, update, delete
+  environment → list, get, create, update, delete
   user_permission → list, get, create, update, delete
-  version        → list, get, create, publish, compare, find_by_date, set_latest, export, import
-  destination    → list, get, link
-  zone           → list, get, create, update, delete, revert
-  gtag_config    → list, get, create, update, delete
-  templates_ref  → tag_templates, trigger_templates
-  ping           → (no action needed)
-  auth_status    → (no action needed)
+  version → list, get, create, publish, compare, find_by_date, set_latest, export, import
+  destination → list, get, link
+  zone → list, get, create, update, delete, revert
+  gtag_config → list, get, create, update, delete
+  templates_ref → tag_templates, trigger_templates
+  ping, auth_status → (no action needed)
 
-Examples:
-  {"resource": "account", "action": "list", "args": {}}
-  {"resource": "tag", "action": "create", "args": {"accountId": "123", "containerId": "456", "workspaceId": "7", "name": "My Tag", "type": "html", "firingTriggerIds": ["2147479553"]}}
-  {"resource": "version", "action": "export", "args": {"accountId": "123", "containerId": "456", "versionId": "1"}}
-  {"resource": "ping", "action": "", "args": {"message": "hello"}}`,
+CRITICAL: UPDATE BEHAVIOR (PARTIAL UPDATES)
+  Update operations are PARTIAL — fields you omit are PRESERVED from the existing entity.
+  You only need to send the fields you want to CHANGE, plus required identifiers (accountId, containerId, workspaceId, and the entity ID).
+  Example: To rename a variable without changing its parameters:
+    {"resource": "variable", "action": "update", "args": {"accountId": "...", "containerId": "...", "workspaceId": "...", "variableId": "...", "name": "New Name", "type": "smm"}}
+  The existing parameter array, notes, and parentFolderId will be preserved automatically.
+  To ADD an entry to an existing parameter list (e.g. a RegEx table), you must GET the current entity first, then send the FULL updated parameter array with the new entry added.
+
+PARAMETER STRUCTURE for tags, triggers, variables:
+  The "parameter" field is an array of parameter objects. Each parameter has:
+    - type: "template" (string value), "boolean", "integer", "list" (array), "map" (key-value pairs)
+    - key: the parameter name (e.g. "html", "pixelId", "trackingId")
+    - value: the parameter value (for template/boolean/integer types)
+    - list: array of sub-parameters (for type "list")
+    - map: array of sub-parameters (for type "map")
+  Example parameter array for a Custom HTML tag:
+    [{"type": "template", "key": "html", "value": "<script>...</script>"}, {"type": "boolean", "key": "supportDocumentWrite", "value": "false"}]
+
+COMMUNITY TEMPLATES (gallery tags):
+  Community/gallery templates have type IDs like "cvt_CONTAINERID_NNN" (e.g. "cvt_36936833_663").
+  DO NOT use generic names like "facebook_pixel" or "meta_pixel" — these are NOT valid GTM types.
+  To find the correct template type ID:
+    1. Use {"resource": "templates_ref", "action": "tag_templates"} to list available templates
+    2. Or GET an existing tag of the same template type to see its type ID
+    3. The type ID is container-specific and must match exactly
+
+COMMON ARGS (required for most create/update/delete/get operations):
+  accountId, containerId, workspaceId — always required
+  For update: also include the entity ID (tagId, triggerId, variableId, etc.)
+  For create: include name, type, and type-specific parameters
+
+EXAMPLES:
+  List accounts: {"resource": "account", "action": "list", "args": {}}
+  Get a tag: {"resource": "tag", "action": "get", "args": {"accountId": "123", "containerId": "456", "workspaceId": "7", "tagId": "89"}}
+  Create Custom HTML tag: {"resource": "tag", "action": "create", "args": {"accountId": "123", "containerId": "456", "workspaceId": "7", "name": "My Tag", "type": "html", "parameter": [{"type": "template", "key": "html", "value": "<script>console.log('hi')</script>"}], "firingTriggerIds": ["2147479553"]}}
+  Update tag name only: {"resource": "tag", "action": "update", "args": {"accountId": "123", "containerId": "456", "workspaceId": "7", "tagId": "89", "name": "Renamed Tag", "type": "html"}}
+  Export version: {"resource": "version", "action": "export", "args": {"accountId": "123", "containerId": "456", "versionId": "1"}}
+  Check auth: {"resource": "auth_status", "action": "", "args": {}}`,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GatewayInput) (*mcp.CallToolResult, any, error) {
 		return routeGateway(ctx, input)
 	})
