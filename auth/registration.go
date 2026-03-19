@@ -128,7 +128,8 @@ func (s *Server) registrationError(w http.ResponseWriter, errCode, errDesc strin
 }
 
 // isValidDCRRedirectURI validates redirect URIs for Dynamic Client Registration.
-// Per RFC 7591, we accept any valid HTTPS URI, plus localhost for development.
+// Per RFC 7591, we accept any valid HTTPS URI, plus localhost for development,
+// plus known custom URI schemes for MCP IDE clients (e.g. Cursor).
 // This is more permissive than the hardcoded list used for non-DCR clients.
 func isValidDCRRedirectURI(uri string) bool {
 	parsed, err := url.Parse(uri)
@@ -136,8 +137,19 @@ func isValidDCRRedirectURI(uri string) bool {
 		return false
 	}
 
-	// Must have a scheme and host
-	if parsed.Scheme == "" || parsed.Host == "" {
+	if parsed.Scheme == "" {
+		return false
+	}
+
+	// Allow known custom URI schemes for MCP IDE clients
+	for _, prefix := range validRedirectCustomSchemes {
+		if strings.HasPrefix(uri, prefix) {
+			return true
+		}
+	}
+
+	// Must have a host for HTTP(S) URIs
+	if parsed.Host == "" {
 		return false
 	}
 

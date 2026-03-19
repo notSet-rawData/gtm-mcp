@@ -457,17 +457,37 @@ var validRedirectHosts = map[string]struct {
 	scheme     string
 	pathPrefix string
 }{
-	"claude.ai":          {"https", "/api/mcp/auth_callback"},
-	"claude.com":         {"https", "/api/mcp/auth_callback"},
-	"chatgpt.com":        {"https", "/connector_platform_oauth_redirect"},
+	"claude.ai":           {"https", "/api/mcp/auth_callback"},
+	"claude.com":          {"https", "/api/mcp/auth_callback"},
+	"chatgpt.com":         {"https", "/connector_platform_oauth_redirect"},
 	"platform.openai.com": {"https", "/apps-manage/oauth"},
+}
+
+// validRedirectCustomSchemes lists allowed custom URI schemes for known MCP IDE clients.
+// These clients use non-HTTP(S) schemes for OAuth callbacks (e.g. cursor://).
+// Format: full URI prefix (scheme + authority + path) for exact matching.
+var validRedirectCustomSchemes = []string{
+	"cursor://anysphere.cursor-mcp/oauth/callback",
 }
 
 // isValidRedirectURI checks if the redirect URI is from a known MCP client.
 // Uses exact hostname matching to prevent subdomain attacks (e.g., localhost.evil.com).
+// Also supports custom URI schemes for known IDE clients (e.g. Cursor).
 func isValidRedirectURI(uri string) bool {
 	parsed, err := url.Parse(uri)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+	if err != nil || parsed.Scheme == "" {
+		return false
+	}
+
+	// Check against known MCP IDE clients with custom URI schemes
+	for _, prefix := range validRedirectCustomSchemes {
+		if strings.HasPrefix(uri, prefix) {
+			return true
+		}
+	}
+
+	// For standard HTTP(S) URIs, require a host
+	if parsed.Host == "" {
 		return false
 	}
 

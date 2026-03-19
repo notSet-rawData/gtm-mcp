@@ -142,6 +142,27 @@ func TestIsValidRedirectURI(t *testing.T) {
 			uri:      "javascript:alert('xss')",
 			expected: false,
 		},
+		// Cursor IDE URIs
+		{
+			name:     "cursor valid redirect URI",
+			uri:      "cursor://anysphere.cursor-mcp/oauth/callback",
+			expected: true,
+		},
+		{
+			name:     "cursor valid redirect URI with query params",
+			uri:      "cursor://anysphere.cursor-mcp/oauth/callback?foo=bar",
+			expected: true,
+		},
+		{
+			name:     "cursor wrong authority",
+			uri:      "cursor://evil.cursor-mcp/oauth/callback",
+			expected: false,
+		},
+		{
+			name:     "cursor wrong path",
+			uri:      "cursor://anysphere.cursor-mcp/evil/path",
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
