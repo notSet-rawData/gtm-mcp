@@ -67,18 +67,33 @@ func (c *Client) CreateClient(ctx context.Context, accountID, containerID, works
 }
 
 // UpdateClient updates an existing client. It fetches the current client first to get the fingerprint.
+// Fields not provided in input are preserved from the current client.
 func (c *Client) UpdateClient(ctx context.Context, path string, input *ClientInput) (*CreatedClient, error) {
 	current, err := c.Service.Accounts.Containers.Workspaces.Clients.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
 	}
 
+	// Preserve existing fields when not provided in input
+	params := toAPIParams(input.Parameter)
+	if params == nil {
+		params = current.Parameter
+	}
+	notes := input.Notes
+	if notes == "" {
+		notes = current.Notes
+	}
+	priority := input.Priority
+	if priority == 0 {
+		priority = current.Priority
+	}
+
 	cl := &tagmanager.Client{
 		Name:      input.Name,
 		Type:      input.Type,
-		Priority:  input.Priority,
-		Parameter: toAPIParams(input.Parameter),
-		Notes:     input.Notes,
+		Priority:  priority,
+		Parameter: params,
+		Notes:     notes,
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Clients.Update(path, cl).Fingerprint(current.Fingerprint).Context(ctx).Do()

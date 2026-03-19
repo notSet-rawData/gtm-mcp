@@ -39,11 +39,34 @@ func (c *Client) CreateTag(ctx context.Context, accountID, containerID, workspac
 }
 
 // UpdateTag updates an existing tag. It fetches the current tag first to get the fingerprint.
+// Fields not provided in input are preserved from the current tag.
 func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*CreatedTag, error) {
-	// Get current tag for fingerprint
+	// Get current tag for fingerprint and to preserve unset fields
 	current, err := c.Service.Accounts.Containers.Workspaces.Tags.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
+	}
+
+	// Preserve existing fields when not provided in input
+	params := toAPIParams(input.Parameter)
+	if params == nil {
+		params = current.Parameter
+	}
+	firingTriggerIds := input.FiringTriggerId
+	if firingTriggerIds == nil {
+		firingTriggerIds = current.FiringTriggerId
+	}
+	blockingTriggerIds := input.BlockingTriggerId
+	if blockingTriggerIds == nil {
+		blockingTriggerIds = current.BlockingTriggerId
+	}
+	notes := input.Notes
+	if notes == "" {
+		notes = current.Notes
+	}
+	tagFiringOption := input.TagFiringOption
+	if tagFiringOption == "" {
+		tagFiringOption = current.TagFiringOption
 	}
 
 	// Preserve existing setup/teardown tags when not provided in input.
@@ -61,12 +84,12 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 	tag := &tagmanager.Tag{
 		Name:              input.Name,
 		Type:              input.Type,
-		FiringTriggerId:   input.FiringTriggerId,
-		BlockingTriggerId: input.BlockingTriggerId,
-		Parameter:         toAPIParams(input.Parameter),
-		Notes:             input.Notes,
+		FiringTriggerId:   firingTriggerIds,
+		BlockingTriggerId: blockingTriggerIds,
+		Parameter:         params,
+		Notes:             notes,
 		Paused:            input.Paused,
-		TagFiringOption:   input.TagFiringOption,
+		TagFiringOption:   tagFiringOption,
 		SetupTag:          setupTags,
 		TeardownTag:       teardownTags,
 		Fingerprint:       current.Fingerprint,
@@ -253,19 +276,35 @@ func (c *Client) CreateVariable(ctx context.Context, accountID, containerID, wor
 }
 
 // UpdateVariable updates an existing variable. It fetches the current variable first to get the fingerprint.
+// Fields not provided in input are preserved from the current variable.
 func (c *Client) UpdateVariable(ctx context.Context, path string, input *VariableInput) (*CreatedVariable, error) {
-	// Get current variable for fingerprint
+	// Get current variable for fingerprint and to preserve unset fields
 	current, err := c.Service.Accounts.Containers.Workspaces.Variables.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
 	}
 
+	// Preserve existing fields when not provided in input
+	params := toAPIParams(input.Parameter)
+	if params == nil {
+		params = current.Parameter
+	}
+	notes := input.Notes
+	if notes == "" {
+		notes = current.Notes
+	}
+	parentFolderID := input.ParentFolderID
+	if parentFolderID == "" {
+		parentFolderID = current.ParentFolderId
+	}
+
 	variable := &tagmanager.Variable{
-		Name:        input.Name,
-		Type:        input.Type,
-		Parameter:   toAPIParams(input.Parameter),
-		Notes:       input.Notes,
-		Fingerprint: current.Fingerprint,
+		Name:           input.Name,
+		Type:           input.Type,
+		Parameter:      params,
+		Notes:          notes,
+		ParentFolderId: parentFolderID,
+		Fingerprint:    current.Fingerprint,
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Variables.Update(path, variable).Context(ctx).Do()

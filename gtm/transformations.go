@@ -66,17 +66,28 @@ func (c *Client) CreateTransformation(ctx context.Context, accountID, containerI
 }
 
 // UpdateTransformation updates an existing transformation. It fetches the current transformation first to get the fingerprint.
+// Fields not provided in input are preserved from the current transformation.
 func (c *Client) UpdateTransformation(ctx context.Context, path string, input *TransformationInput) (*CreatedTransformation, error) {
 	current, err := c.Service.Accounts.Containers.Workspaces.Transformations.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
 	}
 
+	// Preserve existing fields when not provided in input
+	params := toAPIParams(input.Parameter)
+	if params == nil {
+		params = current.Parameter
+	}
+	notes := input.Notes
+	if notes == "" {
+		notes = current.Notes
+	}
+
 	t := &tagmanager.Transformation{
 		Name:      input.Name,
 		Type:      input.Type,
-		Parameter: toAPIParams(input.Parameter),
-		Notes:     input.Notes,
+		Parameter: params,
+		Notes:     notes,
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Transformations.Update(path, t).Fingerprint(current.Fingerprint).Context(ctx).Do()
