@@ -32,7 +32,7 @@ RESOURCES & ACTIONS:
   workspace → list, create, status
   tag → list, get, create, update, delete, revert
   trigger → list, get, create, update, delete, revert
-  variable → list, get, create, update, delete, revert
+  variable → list, get, create, update, delete, revert, add_lookup_entry, remove_lookup_entry, list_lookup_entries
   folder → list, get, create, update, delete, move, audit, revert
   template → list, get, create, update, delete, import, revert
   built_in_variable → list, enable, disable, revert
@@ -84,7 +84,18 @@ EXAMPLES:
   Create Custom HTML tag: {"resource": "tag", "action": "create", "args": {"accountId": "123", "containerId": "456", "workspaceId": "7", "name": "My Tag", "type": "html", "parameter": [{"type": "template", "key": "html", "value": "<script>console.log('hi')</script>"}], "firingTriggerIds": ["2147479553"]}}
   Update tag name only: {"resource": "tag", "action": "update", "args": {"accountId": "123", "containerId": "456", "workspaceId": "7", "tagId": "89", "name": "Renamed Tag", "type": "html"}}
   Export version: {"resource": "version", "action": "export", "args": {"accountId": "123", "containerId": "456", "versionId": "1"}}
-  Check auth: {"resource": "auth_status", "action": "", "args": {}}`,
+  Check auth: {"resource": "auth_status", "action": "", "args": {}}
+
+LOOKUP TABLE OPERATIONS (for RegEx Table variables):
+  Instead of manually GET+modify+PUT entire parameter arrays, use these high-level actions:
+  Add entries:    {"resource": "variable", "action": "add_lookup_entry", "args": {"accountId": "...", "containerId": "...", "workspaceId": "...", "variableId": "676", "entries": [{"pattern": "^myPattern$", "output": "myValue"}]}}
+  Remove entries: {"resource": "variable", "action": "remove_lookup_entry", "args": {"accountId": "...", "containerId": "...", "workspaceId": "...", "variableId": "676", "patterns": ["^myPattern$"]}}
+  List entries:   {"resource": "variable", "action": "list_lookup_entries", "args": {"accountId": "...", "containerId": "...", "workspaceId": "...", "variableId": "676"}}
+  These handle the full GET→merge→UPDATE cycle internally. Duplicates are detected automatically.
+
+IMPORTANT: When using manual UPDATE (not the lookup helpers above):
+  - The "name" and "type" fields are REQUIRED, even if unchanged
+  - You must send the FULL parameter array, not just the changed entry`,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GatewayInput) (*mcp.CallToolResult, any, error) {
 		return routeGateway(ctx, input)
 	})
@@ -274,8 +285,14 @@ func routeVariable(ctx context.Context, gw GatewayInput) (*mcp.CallToolResult, a
 		return handleVariableDelete(ctx, input)
 	case "revert":
 		return handleVariableRevert(ctx, input)
+	case "add_lookup_entry":
+		return handleVariableAddLookupEntry(ctx, input)
+	case "remove_lookup_entry":
+		return handleVariableRemoveLookupEntry(ctx, input)
+	case "list_lookup_entries":
+		return handleVariableListLookupEntries(ctx, input)
 	default:
-		return nil, nil, fmt.Errorf("unknown action %q for resource variable — valid actions: list, get, create, update, delete, revert", input.Action)
+		return nil, nil, fmt.Errorf("unknown action %q for resource variable — valid actions: list, get, create, update, delete, revert, add_lookup_entry, remove_lookup_entry, list_lookup_entries", input.Action)
 	}
 }
 
