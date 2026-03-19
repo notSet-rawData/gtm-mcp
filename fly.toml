@@ -1,9 +1,10 @@
-# fly.toml app configuration file for gtm-mcp
+# fly.toml app configuration file generated for gtm-mcp on 2026-03-19T10:27:30Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = 'gtm-mcp'
-primary_region = 'cdg'
+primary_region = 'iad'
 
 [build]
 
