@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -34,7 +35,7 @@ type VersionToolInput struct {
 	ExportJSON string `json:"exportJson,omitempty" jsonschema:"description:JSON string from a previous export (required for import)"`
 	DryRun     bool   `json:"dryRun,omitempty" jsonschema:"description:If true only analyze and return a plan without creating anything (for import)"`
 	// Fields for export:
-	OutputPath string `json:"outputPath,omitempty" jsonschema:"description:Local filesystem path where the export JSON will be saved. The MCP server runs on the user's machine so this writes directly to their local disk. Example: /home/user/Downloads/export.json. If omitted the file is saved to the user's home directory automatically."`
+	OutputPath string `json:"outputPath,omitempty" jsonschema:"description:IMPORTANT - Before calling export you MUST ask the user where they want to save the file. Provide a suggested default path like ~/Downloads/GTM-export-<containerId>_v<versionId>.json but let the user confirm or change it. This field is the local filesystem path where the export JSON will be saved. The MCP server runs on the user's machine so this writes directly to their local disk."`
 }
 
 
@@ -346,12 +347,20 @@ func handleVersionExport(ctx context.Context, input VersionToolInput) (*mcp.Call
 	// ALWAYS write clean JSON to disk — avoids MCP response wrapping issues
 	outputPath := input.OutputPath
 	if outputPath == "" {
-		// Auto-generate path in user's home directory for easy access
+		// Fallback: auto-generate path in user's home directory
+		// NOTE: The AI should have asked the user BEFORE calling this tool.
 		home, _ := os.UserHomeDir()
 		if home == "" {
 			home = os.TempDir()
 		}
-		outputPath = fmt.Sprintf("%s/GTM-export-%s_v%s.json", home, input.ContainerID, input.VersionID)
+		outputPath = fmt.Sprintf("%s/Downloads/GTM-export-%s_v%s.json", home, input.ContainerID, input.VersionID)
+	}
+
+	// Ensure parent directory exists (prevents errors from non-existent paths)
+	if dir := filepath.Dir(outputPath); dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
 	}
 
 	// Pretty-print the JSON for readability
