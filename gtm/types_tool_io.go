@@ -477,12 +477,16 @@ type EntityChange struct {
 
 // CompareVersionsOutput is the output for compare_versions action.
 type CompareVersionsOutput struct {
-	VersionA    string         `json:"versionA"`
-	VersionB    string         `json:"versionB"`
-	TagChanges  []EntityChange `json:"tagChanges,omitempty"`
-	TrigChanges []EntityChange `json:"triggerChanges,omitempty"`
-	VarChanges  []EntityChange `json:"variableChanges,omitempty"`
-	Summary     string         `json:"summary"`
+	VersionA        string         `json:"versionA"`
+	VersionB        string         `json:"versionB"`
+	TagChanges      []EntityChange `json:"tagChanges,omitempty"`
+	TrigChanges     []EntityChange `json:"triggerChanges,omitempty"`
+	VarChanges      []EntityChange `json:"variableChanges,omitempty"`
+	TemplateChanges []EntityChange `json:"templateChanges,omitempty"`
+	ClientChanges   []EntityChange `json:"clientChanges,omitempty"`
+	TransChanges    []EntityChange `json:"transformationChanges,omitempty"`
+	FolderChanges   []EntityChange `json:"folderChanges,omitempty"`
+	Summary         string         `json:"summary"`
 }
 
 // VersionDateInfo represents a version with its resolved timestamp.
@@ -580,6 +584,40 @@ func diffEntities(a, b map[string]namedEntity) []EntityChange {
 	}
 
 	return changes
+}
+
+func templateMap(templates []TemplateInfo) map[string]namedEntity {
+	m := make(map[string]namedEntity)
+	for _, t := range templates {
+		m[t.Name] = namedEntity{Name: t.Name, ID: t.TemplateID, Type: t.Type}
+	}
+	return m
+}
+
+func clientMap(clients []ClientInfo) map[string]namedEntity {
+	m := make(map[string]namedEntity)
+	for _, c := range clients {
+		data, _ := json.Marshal(c.Parameter)
+		m[c.Name] = namedEntity{Name: c.Name, ID: c.ClientID, Type: c.Type, Hash: string(data)}
+	}
+	return m
+}
+
+func transformationMap(transformations []TransformationInfo) map[string]namedEntity {
+	m := make(map[string]namedEntity)
+	for _, t := range transformations {
+		data, _ := json.Marshal(t.Parameter)
+		m[t.Name] = namedEntity{Name: t.Name, ID: t.TransformationID, Type: t.Type, Hash: string(data)}
+	}
+	return m
+}
+
+func folderMap(folders []Folder) map[string]namedEntity {
+	m := make(map[string]namedEntity)
+	for _, f := range folders {
+		m[f.Name] = namedEntity{Name: f.Name, ID: f.FolderID}
+	}
+	return m
 }
 
 // fingerprintToTime converts a GTM fingerprint (Unix millis as string) to time.Time.

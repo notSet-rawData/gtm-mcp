@@ -163,15 +163,28 @@ func handleVersionCompare(ctx context.Context, input VersionToolInput) (*mcp.Cal
 		return nil, nil, fmt.Errorf("failed to get target version %s: %w", input.TargetVersionID, err)
 	}
 
-	// Compare using existing diffEntities helper and map builders
+	// Compare all entity types
 	tagChanges := diffEntities(tagMap(vA.Tags), tagMap(vB.Tags))
 	trigChanges := diffEntities(triggerMap(vA.Triggers), triggerMap(vB.Triggers))
 	varChanges := diffEntities(variableMap(vA.Variables), variableMap(vB.Variables))
+	tplChanges := diffEntities(templateMap(vA.CustomTemplates), templateMap(vB.CustomTemplates))
+	clientChanges := diffEntities(clientMap(vA.Clients), clientMap(vB.Clients))
+	transChanges := diffEntities(transformationMap(vA.Transformations), transformationMap(vB.Transformations))
+	folderChanges := diffEntities(folderMap(vA.Folders), folderMap(vB.Folders))
+
+	allChanges := make([]EntityChange, 0)
+	allChanges = append(allChanges, tagChanges...)
+	allChanges = append(allChanges, trigChanges...)
+	allChanges = append(allChanges, varChanges...)
+	allChanges = append(allChanges, tplChanges...)
+	allChanges = append(allChanges, clientChanges...)
+	allChanges = append(allChanges, transChanges...)
+	allChanges = append(allChanges, folderChanges...)
 
 	added := 0
 	modified := 0
 	deleted := 0
-	for _, c := range append(append(tagChanges, trigChanges...), varChanges...) {
+	for _, c := range allChanges {
 		switch c.Change {
 		case "added":
 			added++
@@ -183,18 +196,23 @@ func handleVersionCompare(ctx context.Context, input VersionToolInput) (*mcp.Cal
 	}
 
 	summary := fmt.Sprintf(
-		"Version %s → %s: %d added, %d modified, %d deleted (tags: %d changes, triggers: %d changes, variables: %d changes)",
+		"Version %s → %s: %d added, %d modified, %d deleted (tags: %d, triggers: %d, variables: %d, templates: %d, clients: %d, transformations: %d, folders: %d)",
 		input.BaseVersionID, input.TargetVersionID, added, modified, deleted,
 		len(tagChanges), len(trigChanges), len(varChanges),
+		len(tplChanges), len(clientChanges), len(transChanges), len(folderChanges),
 	)
 
 	return nil, CompareVersionsOutput{
-		VersionA:    input.BaseVersionID,
-		VersionB:    input.TargetVersionID,
-		TagChanges:  tagChanges,
-		TrigChanges: trigChanges,
-		VarChanges:  varChanges,
-		Summary:     summary,
+		VersionA:        input.BaseVersionID,
+		VersionB:        input.TargetVersionID,
+		TagChanges:      tagChanges,
+		TrigChanges:     trigChanges,
+		VarChanges:      varChanges,
+		TemplateChanges: tplChanges,
+		ClientChanges:   clientChanges,
+		TransChanges:    transChanges,
+		FolderChanges:   folderChanges,
+		Summary:         summary,
 	}, nil
 }
 

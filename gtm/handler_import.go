@@ -34,21 +34,27 @@ type ImportContainerOutput struct {
 
 // ImportPlan describes what would be imported.
 type ImportPlan struct {
-	Folders   int `json:"folders"`
-	Variables int `json:"variables"`
-	Triggers  int `json:"triggers"`
-	Tags      int `json:"tags"`
-	Total     int `json:"total"`
+	Folders         int `json:"folders"`
+	Templates       int `json:"templates"`
+	Variables       int `json:"variables"`
+	Triggers        int `json:"triggers"`
+	Tags            int `json:"tags"`
+	Clients         int `json:"clients"`
+	Transformations int `json:"transformations"`
+	Total           int `json:"total"`
 }
 
 // ImportResult describes what was actually imported.
 type ImportResult struct {
-	FoldersCreated   int              `json:"foldersCreated"`
-	VariablesCreated int              `json:"variablesCreated"`
-	TriggersCreated  int              `json:"triggersCreated"`
-	TagsCreated      int              `json:"tagsCreated"`
-	Errors           []string         `json:"errors,omitempty"`
-	IDMap            map[string]string `json:"idMap,omitempty"`
+	FoldersCreated         int              `json:"foldersCreated"`
+	TemplatesCreated       int              `json:"templatesCreated"`
+	VariablesCreated       int              `json:"variablesCreated"`
+	TriggersCreated        int              `json:"triggersCreated"`
+	TagsCreated            int              `json:"tagsCreated"`
+	ClientsCreated         int              `json:"clientsCreated"`
+	TransformationsCreated int              `json:"transformationsCreated"`
+	Errors                 []string         `json:"errors,omitempty"`
+	IDMap                  map[string]string `json:"idMap,omitempty"`
 }
 
 func handleVersionImport(ctx context.Context, input VersionToolInput) (*mcp.CallToolResult, any, error) {
@@ -102,16 +108,22 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 
 	// Extract entity arrays
 	folders := extractMapArray(versionData, "folder")
+	customTemplates := extractMapArray(versionData, "customTemplate")
 	variables := extractMapArray(versionData, "variable")
 	triggers := extractMapArray(versionData, "trigger")
 	tags := extractMapArray(versionData, "tag")
+	clients := extractMapArray(versionData, "client")
+	transformations := extractMapArray(versionData, "transformation")
 
 	plan := &ImportPlan{
-		Folders:   len(folders),
-		Variables: len(variables),
-		Triggers:  len(triggers),
-		Tags:      len(tags),
-		Total:     len(folders) + len(variables) + len(triggers) + len(tags),
+		Folders:         len(folders),
+		Templates:       len(customTemplates),
+		Variables:       len(variables),
+		Triggers:        len(triggers),
+		Tags:            len(tags),
+		Clients:         len(clients),
+		Transformations: len(transformations),
+		Total:           len(folders) + len(customTemplates) + len(variables) + len(triggers) + len(tags) + len(clients) + len(transformations),
 	}
 
 	// Dry-run: just return the plan
@@ -119,8 +131,8 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		return nil, ImportContainerOutput{
 			Success: true,
 			DryRun:  true,
-			Message: fmt.Sprintf("Dry-run analysis: would import %d folders, %d variables, %d triggers, %d tags (%d total entities)",
-				plan.Folders, plan.Variables, plan.Triggers, plan.Tags, plan.Total),
+			Message: fmt.Sprintf("Dry-run analysis: would import %d folders, %d templates, %d variables, %d triggers, %d tags, %d clients, %d transformations (%d total entities)",
+				plan.Folders, plan.Templates, plan.Variables, plan.Triggers, plan.Tags, plan.Clients, plan.Transformations, plan.Total),
 			Plan: plan,
 		}, nil
 	}
@@ -168,7 +180,36 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 2: Variables (may reference folders)
+	// Phase 2: Custom Templates (before tags — tags reference template types)
+	for _, tmpl := range customTemplates {
+		name := getStringField(tmpl, "name")
+		oldID := getStringField(tmpl, "templateId")
+		templateData := getStringField(tmpl, "templateData")
+
+		if name == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("skipped template with empty name (id: %s)", oldID))
+			continue
+		}
+
+		// Use the workspace-level template creation via GTM API
+		path := BuildWorkspacePath(input.AccountID, input.ContainerID, input.WorkspaceID)
+		tmplReq := &tagmanager.CustomTemplate{
+			Name:         name,
+			TemplateData: templateData,
+		}
+
+		created, err := client.Service.Accounts.Containers.Workspaces.Templates.Create(path, tmplReq).Context(tCtx).Do()
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("template %q (id: %s): %v", name, oldID, err))
+			continue
+		}
+		result.TemplatesCreated++
+		if oldID != "" {
+			result.IDMap["template:"+oldID] = created.TemplateId
+		}
+	}
+
+	// Phase 3: Variables (may reference folders)
 	for _, v := range variables {
 		name := getStringField(v, "name")
 		varType := getStringField(v, "type")
@@ -204,7 +245,7 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 3: Triggers (may reference variables)
+	// Phase 4: Triggers (may reference variables)
 	for _, tr := range triggers {
 		name := getStringField(tr, "name")
 		trigType := getStringField(tr, "type")
@@ -244,7 +285,7 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 4: Tags (reference triggers)
+	// Phase 5: Tags (reference triggers)
 	for _, tg := range tags {
 		name := getStringField(tg, "name")
 		tagType := getStringField(tg, "type")
@@ -285,11 +326,74 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	totalCreated := result.FoldersCreated + result.VariablesCreated + result.TriggersCreated + result.TagsCreated
-	message := fmt.Sprintf("Import complete: %d/%d entities created (%d folders, %d variables, %d triggers, %d tags)",
+	// Phase 6: Clients (server-side containers only)
+	for _, cl := range clients {
+		name := getStringField(cl, "name")
+		clientType := getStringField(cl, "type")
+		oldID := getStringField(cl, "clientId")
+
+		if name == "" || clientType == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("skipped client with empty name or type (id: %s)", oldID))
+			continue
+		}
+
+		clientInput := &ClientInput{
+			Name:      name,
+			Type:      clientType,
+			Parameter: extractParameters(cl),
+			Notes:     getStringField(cl, "notes"),
+		}
+
+		// Extract priority if present
+		if p, ok := cl["priority"].(float64); ok {
+			clientInput.Priority = int64(p)
+		}
+
+		created, err := client.CreateClient(tCtx, input.AccountID, input.ContainerID, input.WorkspaceID, clientInput)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("client %q (id: %s): %v", name, oldID, err))
+			continue
+		}
+		result.ClientsCreated++
+		if oldID != "" {
+			result.IDMap["client:"+oldID] = created.ClientID
+		}
+	}
+
+	// Phase 7: Transformations (server-side containers only)
+	for _, tr := range transformations {
+		name := getStringField(tr, "name")
+		transType := getStringField(tr, "type")
+		oldID := getStringField(tr, "transformationId")
+
+		if name == "" || transType == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("skipped transformation with empty name or type (id: %s)", oldID))
+			continue
+		}
+
+		transInput := &TransformationInput{
+			Name:      name,
+			Type:      transType,
+			Parameter: extractParameters(tr),
+			Notes:     getStringField(tr, "notes"),
+		}
+
+		created, err := client.CreateTransformation(tCtx, input.AccountID, input.ContainerID, input.WorkspaceID, transInput)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("transformation %q (id: %s): %v", name, oldID, err))
+			continue
+		}
+		result.TransformationsCreated++
+		if oldID != "" {
+			result.IDMap["transformation:"+oldID] = created.TransformationID
+		}
+	}
+
+	totalCreated := result.FoldersCreated + result.TemplatesCreated + result.VariablesCreated + result.TriggersCreated + result.TagsCreated + result.ClientsCreated + result.TransformationsCreated
+	message := fmt.Sprintf("Import complete: %d/%d entities created (%d folders, %d templates, %d variables, %d triggers, %d tags, %d clients, %d transformations)",
 		totalCreated, plan.Total,
-		result.FoldersCreated, result.VariablesCreated,
-		result.TriggersCreated, result.TagsCreated)
+		result.FoldersCreated, result.TemplatesCreated, result.VariablesCreated,
+		result.TriggersCreated, result.TagsCreated, result.ClientsCreated, result.TransformationsCreated)
 
 	if len(result.Errors) > 0 {
 		message += fmt.Sprintf(". %d errors encountered.", len(result.Errors))

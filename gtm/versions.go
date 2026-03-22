@@ -520,10 +520,14 @@ type ContainerVersionDetail struct {
 	Path        string `json:"path"`
 	Fingerprint string `json:"fingerprint,omitempty"`
 	// Full entity snapshots at this version
-	Tags      []Tag      `json:"tag,omitempty"`
-	Triggers  []Trigger  `json:"trigger,omitempty"`
-	Variables []Variable `json:"variable,omitempty"`
-	Folders   []Folder   `json:"folder,omitempty"`
+	Tags             []Tag               `json:"tag,omitempty"`
+	Triggers         []Trigger           `json:"trigger,omitempty"`
+	Variables        []Variable          `json:"variable,omitempty"`
+	Folders          []Folder            `json:"folder,omitempty"`
+	CustomTemplates  []TemplateInfo      `json:"customTemplate,omitempty"`
+	Clients          []ClientInfo        `json:"client,omitempty"`
+	Transformations  []TransformationInfo `json:"transformation,omitempty"`
+	BuiltInVariables []BuiltInVariable   `json:"builtInVariable,omitempty"`
 }
 
 // GetContainerVersion retrieves a full container version with all entities.
@@ -569,6 +573,47 @@ func (c *Client) GetContainerVersion(ctx context.Context, accountID, containerID
 				FolderID: f.FolderId,
 				Name:     f.Name,
 				Path:     f.Path,
+			})
+		}
+	}
+
+	// Convert custom templates
+	if result.CustomTemplate != nil {
+		detail.CustomTemplates = make([]TemplateInfo, 0, len(result.CustomTemplate))
+		for _, t := range result.CustomTemplate {
+			info := TemplateInfo{
+				TemplateID: t.TemplateId,
+				Name:       t.Name,
+			}
+			if t.GalleryReference != nil {
+				info.GalleryReference = &GalleryReferenceInfo{
+					Owner:      t.GalleryReference.Owner,
+					Repository: t.GalleryReference.Repository,
+					Version:    t.GalleryReference.Version,
+				}
+			}
+			detail.CustomTemplates = append(detail.CustomTemplates, info)
+		}
+	}
+
+	// Convert clients (server-side containers)
+	if result.Client != nil {
+		detail.Clients = toClients(result.Client)
+	}
+
+	// Convert transformations (server-side containers)
+	if result.Transformation != nil {
+		detail.Transformations = toTransformations(result.Transformation)
+	}
+
+	// Convert built-in variables
+	if result.BuiltInVariable != nil {
+		detail.BuiltInVariables = make([]BuiltInVariable, 0, len(result.BuiltInVariable))
+		for _, bv := range result.BuiltInVariable {
+			detail.BuiltInVariables = append(detail.BuiltInVariables, BuiltInVariable{
+				Name: bv.Name,
+				Type: bv.Type,
+				Path: bv.Path,
 			})
 		}
 	}
