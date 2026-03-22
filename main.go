@@ -105,10 +105,24 @@ Resources & actions:
   auth_status → (no action needed)`,
 	})
 
-	// Add middleware (order matters: compat first, then logging, then audit)
+	// Add middleware (order matters: compat first, then logging, then audit, then transport mode)
 	server.AddReceivingMiddleware(middleware.NewToolCompatMiddleware(logger))
 	server.AddReceivingMiddleware(middleware.NewLoggingMiddleware(logger))
 	server.AddReceivingMiddleware(middleware.NewAuditMiddleware(logger))
+
+	// Transport mode middleware: injects the correct TransportMode into the context.
+	// Uses the stdioMode flag (captured by closure) to determine the mode.
+	isStdio := *stdioMode
+	server.AddReceivingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
+		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+			if isStdio {
+				ctx = gtm.WithTransportMode(ctx, gtm.TransportStdio)
+			} else {
+				ctx = gtm.WithTransportMode(ctx, gtm.TransportHTTP)
+			}
+			return next(ctx, method, req)
+		}
+	})
 
 	// Register tools
 	registerTools(server)

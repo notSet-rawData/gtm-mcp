@@ -344,25 +344,6 @@ func handleVersionExport(ctx context.Context, input VersionToolInput) (*mcp.Call
 		}
 	}
 
-	// ALWAYS write clean JSON to disk — avoids MCP response wrapping issues
-	outputPath := input.OutputPath
-	if outputPath == "" {
-		// Fallback: auto-generate path in user's home directory
-		// NOTE: The AI should have asked the user BEFORE calling this tool.
-		home, _ := os.UserHomeDir()
-		if home == "" {
-			home = os.TempDir()
-		}
-		outputPath = fmt.Sprintf("%s/Downloads/GTM-export-%s_v%s.json", home, input.ContainerID, input.VersionID)
-	}
-
-	// Ensure parent directory exists (prevents errors from non-existent paths)
-	if dir := filepath.Dir(outputPath); dir != "" {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
-		}
-	}
-
 	// Pretty-print the JSON for readability
 	var prettyJSON []byte
 	var raw interface{}
@@ -372,11 +353,43 @@ func handleVersionExport(ctx context.Context, input VersionToolInput) (*mcp.Call
 		prettyJSON = rawJSON
 	}
 
-	if err := os.WriteFile(outputPath, prettyJSON, 0644); err != nil {
-		return nil, nil, fmt.Errorf("failed to write export to %s: %w", outputPath, err)
+	// Dual-mode export: local (stdio) writes to disk, remote (HTTP) returns inline.
+	if IsLocalMode(ctx) {
+		// Stdio mode: write to user's local filesystem
+		outputPath := input.OutputPath
+		if outputPath == "" {
+			home, _ := os.UserHomeDir()
+			if home == "" {
+				home = os.TempDir()
+			}
+			outputPath = fmt.Sprintf("%s/Downloads/GTM-export-%s_v%s.json", home, input.ContainerID, input.VersionID)
+		}
+
+		if dir := filepath.Dir(outputPath); dir != "" {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return nil, nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
+			}
+		}
+
+		if err := os.WriteFile(outputPath, prettyJSON, 0644); err != nil {
+			return nil, nil, fmt.Errorf("failed to write export to %s: %w", outputPath, err)
+		}
+
+		msg := fmt.Sprintf("EXPORT COMPLETE. The file has been saved to the user's LOCAL machine at:\n%s\n\nFile size: %d bytes | Format: %s\nThis file is ready for GTM UI import (Admin → Import Container).\nIMPORTANT: This file is on the user's local filesystem, NOT in the cloud. The user can open it directly from that path.", outputPath, len(prettyJSON), format)
+
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: msg},
+			},
+		}, nil, nil
 	}
 
-	msg := fmt.Sprintf("EXPORT COMPLETE. The file has been saved to the user's LOCAL machine at:\n%s\n\nFile size: %d bytes | Format: %s\nThis file is ready for GTM UI import (Admin → Import Container).\nIMPORTANT: This file is on the user's local filesystem, NOT in the cloud. The user can open it directly from that path.", outputPath, len(prettyJSON), format)
+	// HTTP mode: return JSON inline (server filesystem is not the user's)
+	suggestedFilename := fmt.Sprintf("GTM-export-%s_v%s.json", input.ContainerID, input.VersionID)
+	msg := fmt.Sprintf("EXPORT COMPLETE — %d bytes | Format: %s\n"+
+		"Suggested filename: %s\n"+
+		"The JSON content is included below. Save it as a .json file for GTM UI import (Admin → Import Container).\n\n%s",
+		len(prettyJSON), format, suggestedFilename, string(prettyJSON))
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
