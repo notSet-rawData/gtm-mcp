@@ -404,14 +404,16 @@ func handleVersionExport(ctx context.Context, input VersionToolInput) (*mcp.Call
 
 	// HTTP mode: return JSON inline (server filesystem is not the user's)
 	suggestedFilename := fmt.Sprintf("GTM-export-%s_v%s.json", input.ContainerID, input.VersionID)
-	msg := fmt.Sprintf("EXPORT COMPLETE — %d bytes | Format: %s\n"+
+	meta := fmt.Sprintf("EXPORT COMPLETE — %d bytes | Format: %s\n"+
 		"Suggested filename: %s\n"+
-		"The JSON content is included below. Save it as a .json file for GTM UI import (Admin → Import Container).\n\n%s",
-		len(prettyJSON), format, suggestedFilename, string(prettyJSON))
+		"The JSON content is in the next content block. Save it as a .json file for GTM UI import (Admin → Import Container).\n"+
+		"IMPORTANT: Copy ONLY the JSON below (starting with '{'), do NOT include this message.",
+		len(prettyJSON), format, suggestedFilename)
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			&mcp.TextContent{Text: msg},
+			&mcp.TextContent{Text: meta},
+			&mcp.TextContent{Text: string(prettyJSON)},
 		},
 	}, nil, nil
 }
