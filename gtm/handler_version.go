@@ -13,9 +13,9 @@ import (
 
 // VersionToolInput is the unified input for the version tool.
 type VersionToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,publish,compare,find_by_date,set_latest,export,import,description:Operation to perform on versions"`
+	Action string `json:"action" jsonschema:"enum:list,get,create,publish,compare,find_by_date,set_latest,export,import,description:Operation to perform on versions"`
 	// Format for export/import: "ui" (SCREAMING_CASE) or "api" (camelCase) or "auto" (detect)
-	Format string `json:"format,omitempty" jsonschema:"enum:ui,api,auto,description:Format. ui = SCREAMING_CASE (GTM UI). api = camelCase (MCP/API). auto = detect. Default: ui for export - auto for import"`
+	Format      string `json:"format,omitempty" jsonschema:"enum:ui,api,auto,description:Format. ui = SCREAMING_CASE (GTM UI). api = camelCase (MCP/API). auto = detect. Default: ui for export - auto for import"`
 	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
 	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
 	// Fields used by create:
@@ -37,7 +37,6 @@ type VersionToolInput struct {
 	// Fields for export:
 	OutputPath string `json:"outputPath,omitempty" jsonschema:"description:IMPORTANT - Before calling export you MUST ask the user where they want to save the file. Provide a suggested default path like ~/Downloads/GTM-export-<containerId>_v<versionId>.json but let the user confirm or change it. This field is the local filesystem path where the export JSON will be saved. The MCP server runs on the user's machine so this writes directly to their local disk."`
 }
-
 
 func handleVersionList(ctx context.Context, input VersionToolInput) (*mcp.CallToolResult, any, error) {
 	cc, err := resolveContainer(ctx, input.AccountID, input.ContainerID)

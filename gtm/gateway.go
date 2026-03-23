@@ -95,13 +95,18 @@ LOOKUP TABLE OPERATIONS (for RegEx Table variables):
 
 IMPORTANT: When using manual UPDATE (not the lookup helpers above):
   - The "name" and "type" fields are REQUIRED, even if unchanged
-  - You must send the FULL parameter array, not just the changed entry`,
+  - You must send the FULL parameter array, not just the changed entry
+
+OPTIMIZATION (optional, for any list action):
+  compact (bool, default true) — return only essential fields (id, name, type). Set to false for full details.
+  limit (int) / offset (int) — paginate results. Default: no limit (all results).`,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GatewayInput) (*mcp.CallToolResult, any, error) {
 		return routeGateway(ctx, input)
 	})
 }
 
 // routeGateway dispatches to the correct resource handler.
+// For "list" actions, it applies compact mode and pagination post-processing.
 func routeGateway(ctx context.Context, input GatewayInput) (*mcp.CallToolResult, any, error) {
 	// Workspace safety: warn when mutating the Default Workspace
 	if warning := workspaceSafetyWarning(input.Args, input.Action); warning != "" {
@@ -110,6 +115,28 @@ func routeGateway(ctx context.Context, input GatewayInput) (*mcp.CallToolResult,
 		}, nil, nil
 	}
 
+	// Extract pagination/compact params before dispatching (removes them from args)
+	var listParams ListParams
+	if input.Action == "list" {
+		listParams = extractListParams(input.Args)
+	}
+
+	// Dispatch to resource handler
+	result, output, err := dispatchToResource(ctx, input)
+	if err != nil {
+		return result, output, err
+	}
+
+	// Post-process list outputs: apply compact mode + pagination
+	if input.Action == "list" && output != nil {
+		output = applyListOptimizations(output, listParams)
+	}
+
+	return result, output, err
+}
+
+// dispatchToResource routes to the correct resource handler.
+func dispatchToResource(ctx context.Context, input GatewayInput) (*mcp.CallToolResult, any, error) {
 	switch input.Resource {
 	case "account":
 		return routeAccount(ctx, input)
