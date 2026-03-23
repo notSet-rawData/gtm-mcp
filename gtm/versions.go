@@ -362,6 +362,57 @@ func (c *Client) exportViaInternalAPI(ctx context.Context, accountID, containerI
 	return json.RawMessage(exportJSON), nil
 }
 
+// knownContainerFeatureFlags lists all container feature flags that GTM native exports include.
+// The Google API omits flags with value false, but the native export always includes them.
+var knownContainerFeatureFlags = []string{
+	"supportBuiltInVariables",
+	"supportClients",
+	"supportEnvironments",
+	"supportFolders",
+	"supportGtagConfigs",
+	"supportTags",
+	"supportTemplates",
+	"supportTransformations",
+	"supportTriggers",
+	"supportUserPermissions",
+	"supportVariables",
+	"supportVersions",
+	"supportWorkspaces",
+	"supportZones",
+}
+
+// ensureContainerFeatureFlags adds missing feature flags with value false
+// to the container.features map, matching GTM native export behavior.
+func ensureContainerFeatureFlags(versionMap map[string]interface{}) {
+	containerRaw, ok := versionMap["container"]
+	if !ok {
+		return
+	}
+	container, ok := containerRaw.(map[string]interface{})
+	if !ok {
+		return
+	}
+	featuresRaw, ok := container["features"]
+	if !ok {
+		// No features at all — create the full map
+		features := make(map[string]interface{}, len(knownContainerFeatureFlags))
+		for _, flag := range knownContainerFeatureFlags {
+			features[flag] = false
+		}
+		container["features"] = features
+		return
+	}
+	features, ok := featuresRaw.(map[string]interface{})
+	if !ok {
+		return
+	}
+	for _, flag := range knownContainerFeatureFlags {
+		if _, exists := features[flag]; !exists {
+			features[flag] = false
+		}
+	}
+}
+
 // exportViaPublicAPI uses the official GTM API v2, optionally converting enums.
 func (c *Client) exportViaPublicAPI(ctx context.Context, accountID, containerID, versionID string, normalizeEnums bool) (json.RawMessage, error) {
 	path := fmt.Sprintf("accounts/%s/containers/%s/versions/%s",
@@ -385,6 +436,9 @@ func (c *Client) exportViaPublicAPI(ctx context.Context, accountID, containerID,
 	if err := json.Unmarshal(intermediate, &versionMap); err != nil {
 		return nil, fmt.Errorf("failed to parse container version JSON: %w", err)
 	}
+
+	// Ensure all known container feature flags are present (API omits false values)
+	ensureContainerFeatureFlags(versionMap)
 
 	if normalizeEnums {
 		convertEnumsToScreamingCase(versionMap)
