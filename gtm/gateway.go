@@ -103,6 +103,13 @@ IMPORTANT: When using manual UPDATE (not the lookup helpers above):
 
 // routeGateway dispatches to the correct resource handler.
 func routeGateway(ctx context.Context, input GatewayInput) (*mcp.CallToolResult, any, error) {
+	// Workspace safety: warn when mutating the Default Workspace
+	if warning := workspaceSafetyWarning(input.Args, input.Action); warning != "" {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: warning}},
+		}, nil, nil
+	}
+
 	switch input.Resource {
 	case "account":
 		return routeAccount(ctx, input)
@@ -166,6 +173,59 @@ func unmarshalArgs(args map[string]interface{}, target interface{}) error {
 	return json.Unmarshal(raw, target)
 }
 
+// normalizeTagAliases remaps common field name variants to the canonical names
+// expected by TagToolInput. This prevents AI clients from failing when they
+// copy field names from GET responses (which use "firingTriggerId") into
+// create/update requests (which expect "firingTriggerIds").
+func normalizeTagAliases(args map[string]interface{}) {
+	// firingTriggerId → firingTriggerIds (only if the canonical field isn't already set)
+	if _, hasCanonical := args["firingTriggerIds"]; !hasCanonical {
+		if val, hasAlias := args["firingTriggerId"]; hasAlias {
+			args["firingTriggerIds"] = val
+			delete(args, "firingTriggerId")
+		}
+	}
+	// blockingTriggerId → blockingTriggerIds
+	if _, hasCanonical := args["blockingTriggerIds"]; !hasCanonical {
+		if val, hasAlias := args["blockingTriggerId"]; hasAlias {
+			args["blockingTriggerIds"] = val
+			delete(args, "blockingTriggerId")
+		}
+	}
+}
+
+// isMutatingAction returns true for actions that modify GTM state.
+func isMutatingAction(action string) bool {
+	switch action {
+	case "create", "update", "delete", "import", "move", "publish",
+		"enable", "disable", "revert", "link", "set_latest",
+		"add_lookup_entry", "remove_lookup_entry":
+		return true
+	}
+	return false
+}
+
+// workspaceSafetyWarning checks if a mutating action is targeting the Default Workspace
+// and returns a warning message suggesting the user create a dedicated workspace.
+// Returns empty string if no warning is needed.
+func workspaceSafetyWarning(args map[string]interface{}, action string) string {
+	if !isMutatingAction(action) {
+		return ""
+	}
+	wsID, _ := args["workspaceId"].(string)
+	// GTM Default Workspace is always ID "2" (in rare cases "1")
+	if wsID == "2" || wsID == "1" {
+		return fmt.Sprintf(
+			"⚠️ WORKSPACE SAFETY: This %s operation is targeting the Default Workspace (ID: %s). "+
+				"Consider creating a dedicated workspace first to isolate your changes and enable easy rollback. "+
+				"Use {\"resource\": \"workspace\", \"action\": \"create\", \"args\": {\"accountId\": \"...\", \"containerId\": \"...\", \"name\": \"AI-Changes-YYYY-MM-DD\"}} "+
+				"to create one, then retry your operation with the new workspaceId.",
+			action, wsID,
+		)
+	}
+	return ""
+}
+
 // --- Resource routers ---
 
 func routeAccount(ctx context.Context, gw GatewayInput) (*mcp.CallToolResult, any, error) {
@@ -219,11 +279,13 @@ func routeWorkspace(ctx context.Context, gw GatewayInput) (*mcp.CallToolResult, 
 }
 
 func routeTag(ctx context.Context, gw GatewayInput) (*mcp.CallToolResult, any, error) {
+	normalizeTagAliases(gw.Args)
 	var input TagToolInput
 	if err := unmarshalArgs(gw.Args, &input); err != nil {
 		return nil, nil, fmt.Errorf("invalid args for tag: %w", err)
 	}
 	input.Action = gw.Action
+
 	switch input.Action {
 	case "list":
 		return handleTagList(ctx, input)
