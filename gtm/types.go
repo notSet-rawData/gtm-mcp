@@ -1,5 +1,9 @@
 package gtm
 
+// boolPtr returns a pointer to the given bool value.
+func boolPtr(b bool) *bool {
+	return &b
+}
 // Parameter represents a GTM parameter structure.
 // Used in tags, triggers, and variables.
 type Parameter struct {
@@ -30,7 +34,7 @@ type TagInput struct {
 	BlockingTriggerId  []string           `json:"blockingTriggerId,omitempty"`
 	Parameter          []Parameter        `json:"parameter,omitempty"`
 	Notes              string             `json:"notes,omitempty"`
-	Paused             bool               `json:"paused,omitempty"`
+	Paused             *bool              `json:"paused,omitempty"`
 	TagFiringOption    string             `json:"tagFiringOption,omitempty"`
 	SetupTag           []SetupTagInput    `json:"setupTag,omitempty"`
 	TeardownTag        []TeardownTagInput `json:"teardownTag,omitempty"`

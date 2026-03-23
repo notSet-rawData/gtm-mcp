@@ -302,7 +302,7 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 			Parameter:       extractParameters(tg),
 			Notes:           getStringField(tg, "notes"),
 			TagFiringOption: getStringField(tg, "tagFiringOption"),
-			Paused:          getBoolField(tg, "paused"),
+			Paused:          boolPtr(getBoolField(tg, "paused")),
 		}
 
 		// Remap firing trigger IDs

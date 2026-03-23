@@ -11,6 +11,11 @@ import (
 func (c *Client) CreateTag(ctx context.Context, accountID, containerID, workspaceID string, input *TagInput) (*CreatedTag, error) {
 	parent := BuildWorkspacePath(accountID, containerID, workspaceID)
 
+	paused := false
+	if input.Paused != nil {
+		paused = *input.Paused
+	}
+
 	tag := &tagmanager.Tag{
 		Name:              input.Name,
 		Type:              input.Type,
@@ -18,7 +23,7 @@ func (c *Client) CreateTag(ctx context.Context, accountID, containerID, workspac
 		BlockingTriggerId: input.BlockingTriggerId,
 		Parameter:         toAPIParams(input.Parameter),
 		Notes:             input.Notes,
-		Paused:            input.Paused,
+		Paused:            paused,
 		TagFiringOption:   input.TagFiringOption,
 		SetupTag:          toAPISetupTags(input.SetupTag),
 		TeardownTag:       toAPITeardownTags(input.TeardownTag),
@@ -80,6 +85,12 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 		teardownTags = current.TeardownTag
 	}
 
+	// Preserve paused state when not explicitly provided
+	paused := current.Paused
+	if input.Paused != nil {
+		paused = *input.Paused
+	}
+
 	// Build updated tag with fingerprint
 	tag := &tagmanager.Tag{
 		Name:              input.Name,
@@ -88,7 +99,7 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 		BlockingTriggerId: blockingTriggerIds,
 		Parameter:         params,
 		Notes:             notes,
-		Paused:            input.Paused,
+		Paused:            paused,
 		TagFiringOption:   tagFiringOption,
 		SetupTag:          setupTags,
 		TeardownTag:       teardownTags,

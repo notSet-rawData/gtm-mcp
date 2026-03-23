@@ -27,7 +27,7 @@ type TagToolInput struct {
 	SetupTagJSON       string   `json:"setupTagJson,omitempty" jsonschema:"description:Setup tag sequencing as JSON array (optional). Each element: {tagName, stopOnSetupFailure}"`
 	TeardownTagJSON    string   `json:"teardownTagJson,omitempty" jsonschema:"description:Teardown tag sequencing as JSON array (optional). Each element: {tagName, stopTeardownOnFailure}"`
 	Notes              string   `json:"notes,omitempty" jsonschema:"description:Tag notes (optional)"`
-	Paused             bool     `json:"paused,omitempty" jsonschema:"description:Whether tag is paused (optional)"`
+	Paused             *bool    `json:"paused,omitempty" jsonschema:"description:Whether tag is paused (optional)"`
 	// Fields for delete:
 	Confirm     bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
 	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
