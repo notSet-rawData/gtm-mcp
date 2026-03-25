@@ -14,12 +14,12 @@ import (
 
 // Server handles OAuth2 authorization endpoints.
 type Server struct {
-	baseURL            string
-	google             *GoogleProvider
-	store              TokenStore
-	logger             *slog.Logger
-	accessTokenTTL     time.Duration
-	allowedDCRDomains  map[string]bool
+	baseURL           string
+	google            *GoogleProvider
+	store             TokenStore
+	logger            *slog.Logger
+	accessTokenTTL    time.Duration
+	allowedDCRDomains map[string]bool
 }
 
 // NewServer creates a new OAuth server.
@@ -192,11 +192,11 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Store temporarily with the Google token (code is short-lived)
 	tempToken := &TokenInfo{
-		AccessToken:  ourCode, // Temporary: using code as key
-		GoogleToken:  googleToken,
-		ClientID:     authState.ClientID,
-		CreatedAt:    time.Now(),
-		ExpiresAt:    time.Now().Add(5 * time.Minute), // Code expires in 5 min
+		AccessToken: ourCode, // Temporary: using code as key
+		GoogleToken: googleToken,
+		ClientID:    authState.ClientID,
+		CreatedAt:   time.Now(),
+		ExpiresAt:   time.Now().Add(5 * time.Minute), // Code expires in 5 min
 	}
 
 	// Store code verifier for PKCE verification
@@ -461,6 +461,9 @@ var validRedirectHosts = map[string]struct {
 	"claude.com":          {"https", "/api/mcp/auth_callback"},
 	"chatgpt.com":         {"https", "/connector_platform_oauth_redirect"},
 	"platform.openai.com": {"https", "/apps-manage/oauth"},
+	"www.cursor.com":      {"https", "/agents/mcp/oauth/callback"},
+	"cursor.com":          {"https", "/agents/mcp/oauth/callback"},
+	"api2.cursor.sh":      {"https", "/agents/mcp/oauth/callback"},
 }
 
 // validRedirectCustomSchemes lists allowed custom URI schemes for known MCP IDE clients.
