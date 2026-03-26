@@ -28,6 +28,12 @@ type TagToolInput struct {
 	TeardownTagJSON    string   `json:"teardownTagJson,omitempty" jsonschema:"description:Teardown tag sequencing as JSON array (optional). Each element: {tagName, stopTeardownOnFailure}"`
 	Notes              string   `json:"notes,omitempty" jsonschema:"description:Tag notes (optional)"`
 	Paused             *bool    `json:"paused,omitempty" jsonschema:"description:Whether tag is paused (optional)"`
+	PriorityJSON       string   `json:"priorityJson,omitempty" jsonschema:"description:Tag firing priority as JSON Parameter object e.g. {type: integer, value: 100}. Higher values fire first."`
+	ParentFolderID     string   `json:"parentFolderId,omitempty" jsonschema:"description:Parent folder ID for organizational purposes (optional)"`
+	ScheduleStartMs    int64    `json:"scheduleStartMs,omitempty" jsonschema:"description:Start timestamp in milliseconds for scheduling tag activation (optional)"`
+	ScheduleEndMs      int64    `json:"scheduleEndMs,omitempty" jsonschema:"description:End timestamp in milliseconds for scheduling tag deactivation (optional)"`
+	MonitoringMetadataTagNameKey string `json:"monitoringMetadataTagNameKey,omitempty" jsonschema:"description:Key for the tag name in monitoring metadata (optional)"`
+	ConsentSettingsJSON string  `json:"consentSettingsJson,omitempty" jsonschema:"description:Consent settings as JSON object e.g. {consentStatus: needed, consentType: {type: list, list: [{type: template, value: ad_storage}]}} (optional)"`
 	// Fields for delete:
 	Confirm     bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
 	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
@@ -111,16 +117,40 @@ func handleTagCreate(ctx context.Context, input TagToolInput) (*mcp.CallToolResu
 		}
 	}
 
+	var priority *Parameter
+	if input.PriorityJSON != "" {
+		var p Parameter
+		if err := json.Unmarshal([]byte(input.PriorityJSON), &p); err != nil {
+			return nil, nil, fmt.Errorf("invalid priorityJson: %w", err)
+		}
+		priority = &p
+	}
+
+	var consentSettings *ConsentSettingInput
+	if input.ConsentSettingsJSON != "" {
+		var cs ConsentSettingInput
+		if err := json.Unmarshal([]byte(input.ConsentSettingsJSON), &cs); err != nil {
+			return nil, nil, fmt.Errorf("invalid consentSettingsJson: %w", err)
+		}
+		consentSettings = &cs
+	}
+
 	tagInput := &TagInput{
-		Name:              input.Name,
-		Type:              input.Type,
-		FiringTriggerId:   input.FiringTriggerIDs,
-		BlockingTriggerId: input.BlockingTriggerIDs,
-		Parameter:         params,
-		Notes:             input.Notes,
-		Paused:            input.Paused,
-		SetupTag:          setupTags,
-		TeardownTag:       teardownTags,
+		Name:                        input.Name,
+		Type:                        input.Type,
+		FiringTriggerId:             input.FiringTriggerIDs,
+		BlockingTriggerId:           input.BlockingTriggerIDs,
+		Parameter:                   params,
+		Notes:                       input.Notes,
+		Paused:                      input.Paused,
+		SetupTag:                    setupTags,
+		TeardownTag:                 teardownTags,
+		Priority:                    priority,
+		ParentFolderID:              input.ParentFolderID,
+		ScheduleStartMs:             input.ScheduleStartMs,
+		ScheduleEndMs:               input.ScheduleEndMs,
+		MonitoringMetadataTagNameKey: input.MonitoringMetadataTagNameKey,
+		ConsentSettings:             consentSettings,
 	}
 
 	tag, err := wc.Client.CreateTag(tCtx, wc.AccountID, wc.ContainerID, wc.WorkspaceID, tagInput)
@@ -182,18 +212,42 @@ func handleTagUpdate(ctx context.Context, input TagToolInput) (*mcp.CallToolResu
 		}
 	}
 
+	var priority *Parameter
+	if input.PriorityJSON != "" {
+		var p Parameter
+		if err := json.Unmarshal([]byte(input.PriorityJSON), &p); err != nil {
+			return nil, nil, fmt.Errorf("invalid priorityJson: %w", err)
+		}
+		priority = &p
+	}
+
+	var consentSettings *ConsentSettingInput
+	if input.ConsentSettingsJSON != "" {
+		var cs ConsentSettingInput
+		if err := json.Unmarshal([]byte(input.ConsentSettingsJSON), &cs); err != nil {
+			return nil, nil, fmt.Errorf("invalid consentSettingsJson: %w", err)
+		}
+		consentSettings = &cs
+	}
+
 	tagInput := &TagInput{
-		Name:              input.Name,
-		Type:              input.Type,
-		FiringTriggerId:   input.FiringTriggerIDs,
-		BlockingTriggerId: input.BlockingTriggerIDs,
-		Parameter:         params,
-		Notes:             input.Notes,
-		Paused:            input.Paused,
-		SetupTag:          setupTags,
-		TeardownTag:       teardownTags,
-		ClearSetupTag:     clearSetup,
-		ClearTeardownTag:  clearTeardown,
+		Name:                        input.Name,
+		Type:                        input.Type,
+		FiringTriggerId:             input.FiringTriggerIDs,
+		BlockingTriggerId:           input.BlockingTriggerIDs,
+		Parameter:                   params,
+		Notes:                       input.Notes,
+		Paused:                      input.Paused,
+		SetupTag:                    setupTags,
+		TeardownTag:                 teardownTags,
+		ClearSetupTag:               clearSetup,
+		ClearTeardownTag:            clearTeardown,
+		Priority:                    priority,
+		ParentFolderID:              input.ParentFolderID,
+		ScheduleStartMs:             input.ScheduleStartMs,
+		ScheduleEndMs:               input.ScheduleEndMs,
+		MonitoringMetadataTagNameKey: input.MonitoringMetadataTagNameKey,
+		ConsentSettings:             consentSettings,
 	}
 
 	tag, err := wc.Client.UpdateTag(tCtx, path, tagInput)

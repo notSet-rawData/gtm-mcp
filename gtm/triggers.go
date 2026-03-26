@@ -9,15 +9,21 @@ import (
 
 // Trigger is a simplified representation of a GTM trigger.
 type Trigger struct {
-	TriggerID         string `json:"triggerId"`
-	Name              string `json:"name"`
-	Type              string `json:"type"`
-	Path              string `json:"path"`
-	ParentFolderID    string `json:"parentFolderId,omitempty"`
-	Notes             string `json:"notes,omitempty"`
-	Filter            any    `json:"filter,omitempty"`            // For pageview triggers
-	AutoEventFilter   any    `json:"autoEventFilter,omitempty"`   // For click/form triggers
-	CustomEventFilter any    `json:"customEventFilter,omitempty"` // For customEvent triggers
+	TriggerID          string `json:"triggerId"`
+	Name               string `json:"name"`
+	Type               string `json:"type"`
+	Path               string `json:"path"`
+	ParentFolderID     string `json:"parentFolderId,omitempty"`
+	Notes              string `json:"notes,omitempty"`
+	Fingerprint        string `json:"fingerprint,omitempty"`
+	EventName          any    `json:"eventName,omitempty"`
+	WaitForTags        any    `json:"waitForTags,omitempty"`
+	CheckValidation    any    `json:"checkValidation,omitempty"`
+	WaitForTagsTimeout any    `json:"waitForTagsTimeout,omitempty"`
+	UniqueTriggerId    any    `json:"uniqueTriggerId,omitempty"`
+	Filter             any    `json:"filter,omitempty"`            // For pageview triggers
+	AutoEventFilter    any    `json:"autoEventFilter,omitempty"`   // For click/form triggers
+	CustomEventFilter  any    `json:"customEventFilter,omitempty"` // For customEvent triggers
 	// Parameter contains trigger configuration. For triggerGroup type, includes member trigger IDs.
 	// Using any to avoid recursive type cycle in schema generation.
 	Parameter any `json:"parameter,omitempty"`
@@ -63,6 +69,23 @@ func toTriggers(triggers []*tagmanager.Trigger) []Trigger {
 			Path:           t.Path,
 			ParentFolderID: t.ParentFolderId,
 			Notes:          t.Notes,
+			Fingerprint:    t.Fingerprint,
+		}
+		// Include typed parameter fields when present
+		if t.EventName != nil {
+			trigger.EventName = t.EventName
+		}
+		if t.WaitForTags != nil {
+			trigger.WaitForTags = t.WaitForTags
+		}
+		if t.CheckValidation != nil {
+			trigger.CheckValidation = t.CheckValidation
+		}
+		if t.WaitForTagsTimeout != nil {
+			trigger.WaitForTagsTimeout = t.WaitForTagsTimeout
+		}
+		if t.UniqueTriggerId != nil {
+			trigger.UniqueTriggerId = t.UniqueTriggerId
 		}
 		// Include filter fields when present
 		if len(t.Filter) > 0 {

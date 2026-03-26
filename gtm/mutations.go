@@ -17,16 +17,23 @@ func (c *Client) CreateTag(ctx context.Context, accountID, containerID, workspac
 	}
 
 	tag := &tagmanager.Tag{
-		Name:              input.Name,
-		Type:              input.Type,
-		FiringTriggerId:   input.FiringTriggerId,
-		BlockingTriggerId: input.BlockingTriggerId,
-		Parameter:         toAPIParams(input.Parameter),
-		Notes:             input.Notes,
-		Paused:            paused,
-		TagFiringOption:   input.TagFiringOption,
-		SetupTag:          toAPISetupTags(input.SetupTag),
-		TeardownTag:       toAPITeardownTags(input.TeardownTag),
+		Name:                        input.Name,
+		Type:                        input.Type,
+		FiringTriggerId:             input.FiringTriggerId,
+		BlockingTriggerId:           input.BlockingTriggerId,
+		Parameter:                   toAPIParams(input.Parameter),
+		Notes:                       input.Notes,
+		Paused:                      paused,
+		TagFiringOption:             input.TagFiringOption,
+		SetupTag:                    toAPISetupTags(input.SetupTag),
+		TeardownTag:                 toAPITeardownTags(input.TeardownTag),
+		Priority:                    toAPIParam(input.Priority),
+		ParentFolderId:              input.ParentFolderID,
+		ScheduleStartMs:             input.ScheduleStartMs,
+		ScheduleEndMs:               input.ScheduleEndMs,
+		MonitoringMetadata:          toAPIParam(input.MonitoringMetadata),
+		MonitoringMetadataTagNameKey: input.MonitoringMetadataTagNameKey,
+		ConsentSettings:             toAPIConsentSettings(input.ConsentSettings),
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Tags.Create(parent, tag).Context(ctx).Do()
@@ -91,19 +98,64 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 		paused = *input.Paused
 	}
 
+	// Preserve priority when not provided
+	priority := toAPIParam(input.Priority)
+	if priority == nil {
+		priority = current.Priority
+	}
+
+	// Preserve parentFolderId when not provided
+	parentFolderID := input.ParentFolderID
+	if parentFolderID == "" {
+		parentFolderID = current.ParentFolderId
+	}
+
+	// Preserve schedule fields when not provided
+	scheduleStartMs := input.ScheduleStartMs
+	if scheduleStartMs == 0 {
+		scheduleStartMs = current.ScheduleStartMs
+	}
+	scheduleEndMs := input.ScheduleEndMs
+	if scheduleEndMs == 0 {
+		scheduleEndMs = current.ScheduleEndMs
+	}
+
+	// Preserve monitoring metadata when not provided
+	monitoringMetadata := toAPIParam(input.MonitoringMetadata)
+	if monitoringMetadata == nil {
+		monitoringMetadata = current.MonitoringMetadata
+	}
+	monitoringMetadataTagNameKey := input.MonitoringMetadataTagNameKey
+	if monitoringMetadataTagNameKey == "" {
+		monitoringMetadataTagNameKey = current.MonitoringMetadataTagNameKey
+	}
+
+	// Preserve consent settings when not provided
+	consentSettings := toAPIConsentSettings(input.ConsentSettings)
+	if consentSettings == nil {
+		consentSettings = current.ConsentSettings
+	}
+
 	// Build updated tag with fingerprint
 	tag := &tagmanager.Tag{
-		Name:              input.Name,
-		Type:              input.Type,
-		FiringTriggerId:   firingTriggerIds,
-		BlockingTriggerId: blockingTriggerIds,
-		Parameter:         params,
-		Notes:             notes,
-		Paused:            paused,
-		TagFiringOption:   tagFiringOption,
-		SetupTag:          setupTags,
-		TeardownTag:       teardownTags,
-		Fingerprint:       current.Fingerprint,
+		Name:                        input.Name,
+		Type:                        input.Type,
+		FiringTriggerId:             firingTriggerIds,
+		BlockingTriggerId:           blockingTriggerIds,
+		Parameter:                   params,
+		Notes:                       notes,
+		Paused:                      paused,
+		TagFiringOption:             tagFiringOption,
+		SetupTag:                    setupTags,
+		TeardownTag:                 teardownTags,
+		Fingerprint:                 current.Fingerprint,
+		Priority:                    priority,
+		ParentFolderId:              parentFolderID,
+		ScheduleStartMs:             scheduleStartMs,
+		ScheduleEndMs:               scheduleEndMs,
+		MonitoringMetadata:          monitoringMetadata,
+		MonitoringMetadataTagNameKey: monitoringMetadataTagNameKey,
+		ConsentSettings:             consentSettings,
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Tags.Update(path, tag).Context(ctx).Do()
@@ -138,6 +190,10 @@ func (c *Client) CreateTrigger(ctx context.Context, accountID, containerID, work
 		CustomEventFilter: toAPIConditions(input.CustomEventFilter),
 		Parameter:         toAPIParams(input.Parameter),
 		Notes:             input.Notes,
+		ParentFolderId:    input.ParentFolderID,
+		WaitForTags:       toAPIParam(input.WaitForTags),
+		CheckValidation:   toAPIParam(input.CheckValidation),
+		WaitForTagsTimeout: toAPIParam(input.WaitForTagsTimeout),
 	}
 
 	if input.EventName != nil {
@@ -146,9 +202,15 @@ func (c *Client) CreateTrigger(ctx context.Context, accountID, containerID, work
 
 	// For click/form triggers with autoEventFilter, set required companion fields
 	if len(input.AutoEventFilter) > 0 && (input.Type == "linkClick" || input.Type == "formSubmission" || input.Type == "click") {
-		trigger.WaitForTags = &tagmanager.Parameter{Type: "boolean", Value: "false"}
-		trigger.WaitForTagsTimeout = &tagmanager.Parameter{Type: "integer", Value: "2000"}
-		trigger.CheckValidation = &tagmanager.Parameter{Type: "boolean", Value: "false"}
+		if trigger.WaitForTags == nil {
+			trigger.WaitForTags = &tagmanager.Parameter{Type: "boolean", Value: "false"}
+		}
+		if trigger.WaitForTagsTimeout == nil {
+			trigger.WaitForTagsTimeout = &tagmanager.Parameter{Type: "integer", Value: "2000"}
+		}
+		if trigger.CheckValidation == nil {
+			trigger.CheckValidation = &tagmanager.Parameter{Type: "boolean", Value: "false"}
+		}
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Triggers.Create(parent, trigger).Context(ctx).Do()
@@ -198,6 +260,32 @@ func (c *Client) UpdateTrigger(ctx context.Context, path string, input *TriggerI
 		params = current.Parameter
 	}
 
+	// Preserve notes when not provided (BUG FIX: previously notes were silently lost)
+	notes := input.Notes
+	if notes == "" {
+		notes = current.Notes
+	}
+
+	// Preserve parentFolderId when not provided
+	parentFolderID := input.ParentFolderID
+	if parentFolderID == "" {
+		parentFolderID = current.ParentFolderId
+	}
+
+	// Preserve waitForTags/checkValidation/waitForTagsTimeout when not provided
+	waitForTags := toAPIParam(input.WaitForTags)
+	if waitForTags == nil {
+		waitForTags = current.WaitForTags
+	}
+	checkValidation := toAPIParam(input.CheckValidation)
+	if checkValidation == nil {
+		checkValidation = current.CheckValidation
+	}
+	waitForTagsTimeout := toAPIParam(input.WaitForTagsTimeout)
+	if waitForTagsTimeout == nil {
+		waitForTagsTimeout = current.WaitForTagsTimeout
+	}
+
 	trigger := &tagmanager.Trigger{
 		Name:              input.Name,
 		Type:              input.Type,
@@ -205,11 +293,12 @@ func (c *Client) UpdateTrigger(ctx context.Context, path string, input *TriggerI
 		AutoEventFilter:   autoEventFilter,
 		CustomEventFilter: customEventFilter,
 		Parameter:         params,
-		Notes:             input.Notes,
+		Notes:             notes,
+		ParentFolderId:    parentFolderID,
+		WaitForTags:       waitForTags,
+		CheckValidation:   checkValidation,
+		WaitForTagsTimeout: waitForTagsTimeout,
 		// Preserve trigger-specific fields from current trigger (exclude auto-generated ones)
-		CheckValidation:                current.CheckValidation,
-		WaitForTags:                    current.WaitForTags,
-		WaitForTagsTimeout:             current.WaitForTagsTimeout,
 		ContinuousTimeMinMilliseconds:  current.ContinuousTimeMinMilliseconds,
 		HorizontalScrollPercentageList: current.HorizontalScrollPercentageList,
 		Interval:                       current.Interval,
@@ -265,11 +354,16 @@ func (c *Client) CreateVariable(ctx context.Context, accountID, containerID, wor
 	parent := BuildWorkspacePath(accountID, containerID, workspaceID)
 
 	variable := &tagmanager.Variable{
-		Name:           input.Name,
-		Type:           input.Type,
-		Parameter:      toAPIParams(input.Parameter),
-		Notes:          input.Notes,
-		ParentFolderId: input.ParentFolderID,
+		Name:               input.Name,
+		Type:               input.Type,
+		Parameter:          toAPIParams(input.Parameter),
+		Notes:              input.Notes,
+		ParentFolderId:     input.ParentFolderID,
+		ScheduleStartMs:    input.ScheduleStartMs,
+		ScheduleEndMs:      input.ScheduleEndMs,
+		EnablingTriggerId:  input.EnablingTriggerId,
+		DisablingTriggerId: input.DisablingTriggerId,
+		FormatValue:        toAPIFormatValue(input.FormatValue),
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Variables.Create(parent, variable).Context(ctx).Do()
@@ -308,14 +402,39 @@ func (c *Client) UpdateVariable(ctx context.Context, path string, input *Variabl
 	if parentFolderID == "" {
 		parentFolderID = current.ParentFolderId
 	}
+	scheduleStartMs := input.ScheduleStartMs
+	if scheduleStartMs == 0 {
+		scheduleStartMs = current.ScheduleStartMs
+	}
+	scheduleEndMs := input.ScheduleEndMs
+	if scheduleEndMs == 0 {
+		scheduleEndMs = current.ScheduleEndMs
+	}
+	enablingTriggerId := input.EnablingTriggerId
+	if enablingTriggerId == nil {
+		enablingTriggerId = current.EnablingTriggerId
+	}
+	disablingTriggerId := input.DisablingTriggerId
+	if disablingTriggerId == nil {
+		disablingTriggerId = current.DisablingTriggerId
+	}
+	formatValue := toAPIFormatValue(input.FormatValue)
+	if formatValue == nil {
+		formatValue = current.FormatValue
+	}
 
 	variable := &tagmanager.Variable{
-		Name:           input.Name,
-		Type:           input.Type,
-		Parameter:      params,
-		Notes:          notes,
-		ParentFolderId: parentFolderID,
-		Fingerprint:    current.Fingerprint,
+		Name:               input.Name,
+		Type:               input.Type,
+		Parameter:          params,
+		Notes:              notes,
+		ParentFolderId:     parentFolderID,
+		Fingerprint:        current.Fingerprint,
+		ScheduleStartMs:    scheduleStartMs,
+		ScheduleEndMs:      scheduleEndMs,
+		EnablingTriggerId:  enablingTriggerId,
+		DisablingTriggerId: disablingTriggerId,
+		FormatValue:        formatValue,
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Variables.Update(path, variable).Context(ctx).Do()
@@ -439,6 +558,35 @@ func triggerForceSendFields(input *TriggerInput) []string {
 		fields = append(fields, "EventName")
 	}
 	return fields
+}
+
+// toAPIConsentSettings converts ConsentSettingInput to API ConsentSetting.
+func toAPIConsentSettings(cs *ConsentSettingInput) *tagmanager.TagConsentSetting {
+	if cs == nil {
+		return nil
+	}
+	result := &tagmanager.TagConsentSetting{
+		ConsentStatus: cs.ConsentStatus,
+	}
+	if cs.ConsentType != nil {
+		result.ConsentType = toAPIParam(cs.ConsentType)
+	}
+	return result
+}
+
+// toAPIFormatValue converts FormatValueInput to API FormatValue.
+func toAPIFormatValue(fv *FormatValueInput) *tagmanager.VariableFormatValue {
+	if fv == nil {
+		return nil
+	}
+	result := &tagmanager.VariableFormatValue{
+		CaseConversionType:    fv.CaseConversionType,
+		ConvertNullToValue:    toAPIParam(fv.ConvertNullToValue),
+		ConvertUndefinedToValue: toAPIParam(fv.ConvertUndefinedToValue),
+		ConvertTrueToValue:    toAPIParam(fv.ConvertTrueToValue),
+		ConvertFalseToValue:   toAPIParam(fv.ConvertFalseToValue),
+	}
+	return result
 }
 
 // BuildTagPath constructs a tag path from IDs.

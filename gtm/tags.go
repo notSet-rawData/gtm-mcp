@@ -15,15 +15,24 @@ type TagSequenceRef struct {
 
 // Tag is a simplified representation of a GTM tag.
 type Tag struct {
-	TagID             string           `json:"tagId"`
-	Name              string           `json:"name"`
-	Type              string           `json:"type"`
-	FiringTriggerID   []string         `json:"firingTriggerId,omitempty"`
-	BlockingTriggerID []string         `json:"blockingTriggerId,omitempty"`
-	SetupTag          []TagSequenceRef `json:"setupTag,omitempty"`
-	TeardownTag       []TagSequenceRef `json:"teardownTag,omitempty"`
-	Paused            bool             `json:"paused,omitempty"`
-	Path              string           `json:"path"`
+	TagID                        string           `json:"tagId"`
+	Name                         string           `json:"name"`
+	Type                         string           `json:"type"`
+	FiringTriggerID              []string         `json:"firingTriggerId,omitempty"`
+	BlockingTriggerID            []string         `json:"blockingTriggerId,omitempty"`
+	SetupTag                     []TagSequenceRef `json:"setupTag,omitempty"`
+	TeardownTag                  []TagSequenceRef `json:"teardownTag,omitempty"`
+	Paused                       bool             `json:"paused,omitempty"`
+	Path                         string           `json:"path"`
+	Notes                        string           `json:"notes,omitempty"`
+	Fingerprint                  string           `json:"fingerprint,omitempty"`
+	TagFiringOption              string           `json:"tagFiringOption,omitempty"`
+	ParentFolderID               string           `json:"parentFolderId,omitempty"`
+	Priority                     any              `json:"priority,omitempty"`
+	ScheduleStartMs              int64            `json:"scheduleStartMs,omitempty"`
+	ScheduleEndMs                int64            `json:"scheduleEndMs,omitempty"`
+	MonitoringMetadataTagNameKey string           `json:"monitoringMetadataTagNameKey,omitempty"`
+	ConsentSettings              any              `json:"consentSettings,omitempty"`
 	// Parameter contains tag configuration (pixel IDs, HTML code, measurement IDs, etc.).
 	Parameter any `json:"parameter,omitempty"`
 }
@@ -68,13 +77,26 @@ func toTags(tags []*tagmanager.Tag) []Tag {
 
 func toTag(t *tagmanager.Tag) Tag {
 	tag := Tag{
-		TagID:             t.TagId,
-		Name:              t.Name,
-		Type:              t.Type,
-		FiringTriggerID:   t.FiringTriggerId,
-		BlockingTriggerID: t.BlockingTriggerId,
-		Paused:            t.Paused,
-		Path:              t.Path,
+		TagID:                        t.TagId,
+		Name:                         t.Name,
+		Type:                         t.Type,
+		FiringTriggerID:              t.FiringTriggerId,
+		BlockingTriggerID:            t.BlockingTriggerId,
+		Paused:                       t.Paused,
+		Path:                         t.Path,
+		Notes:                        t.Notes,
+		Fingerprint:                  t.Fingerprint,
+		TagFiringOption:              t.TagFiringOption,
+		ParentFolderID:               t.ParentFolderId,
+		ScheduleStartMs:              t.ScheduleStartMs,
+		ScheduleEndMs:                t.ScheduleEndMs,
+		MonitoringMetadataTagNameKey: t.MonitoringMetadataTagNameKey,
+	}
+	if t.Priority != nil {
+		tag.Priority = t.Priority
+	}
+	if t.ConsentSettings != nil {
+		tag.ConsentSettings = t.ConsentSettings
 	}
 	if len(t.Parameter) > 0 {
 		tag.Parameter = t.Parameter

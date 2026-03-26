@@ -26,20 +26,42 @@ type TeardownTagInput struct {
 	StopTeardownOnFailure bool   `json:"stopTeardownOnFailure,omitempty"`
 }
 
+// ConsentSettingInput represents consent settings for a tag.
+type ConsentSettingInput struct {
+	ConsentStatus string    `json:"consentStatus,omitempty"` // notSet, notNeeded, needed
+	ConsentType   *Parameter `json:"consentType,omitempty"`   // LIST type parameter with consent types
+}
+
+// FormatValueInput represents format value settings for a variable.
+type FormatValueInput struct {
+	CaseConversionType    string     `json:"caseConversionType,omitempty"` // none, lowercase, uppercase
+	ConvertNullToValue    *Parameter `json:"convertNullToValue,omitempty"`
+	ConvertUndefinedToValue *Parameter `json:"convertUndefinedToValue,omitempty"`
+	ConvertTrueToValue    *Parameter `json:"convertTrueToValue,omitempty"`
+	ConvertFalseToValue   *Parameter `json:"convertFalseToValue,omitempty"`
+}
+
 // TagInput represents input for creating/updating a tag.
 type TagInput struct {
-	Name               string             `json:"name"`
-	Type               string             `json:"type"`
-	FiringTriggerId    []string           `json:"firingTriggerId"`
-	BlockingTriggerId  []string           `json:"blockingTriggerId,omitempty"`
-	Parameter          []Parameter        `json:"parameter,omitempty"`
-	Notes              string             `json:"notes,omitempty"`
-	Paused             *bool              `json:"paused,omitempty"`
-	TagFiringOption    string             `json:"tagFiringOption,omitempty"`
-	SetupTag           []SetupTagInput    `json:"setupTag,omitempty"`
-	TeardownTag        []TeardownTagInput `json:"teardownTag,omitempty"`
-	ClearSetupTag      bool               `json:"-"` // When true, explicitly clear setup tags
-	ClearTeardownTag   bool               `json:"-"` // When true, explicitly clear teardown tags
+	Name                        string             `json:"name"`
+	Type                        string             `json:"type"`
+	FiringTriggerId             []string           `json:"firingTriggerId"`
+	BlockingTriggerId           []string           `json:"blockingTriggerId,omitempty"`
+	Parameter                   []Parameter        `json:"parameter,omitempty"`
+	Notes                       string             `json:"notes,omitempty"`
+	Paused                      *bool              `json:"paused,omitempty"`
+	TagFiringOption             string             `json:"tagFiringOption,omitempty"`
+	SetupTag                    []SetupTagInput    `json:"setupTag,omitempty"`
+	TeardownTag                 []TeardownTagInput `json:"teardownTag,omitempty"`
+	ClearSetupTag               bool               `json:"-"` // When true, explicitly clear setup tags
+	ClearTeardownTag            bool               `json:"-"` // When true, explicitly clear teardown tags
+	Priority                    *Parameter         `json:"priority,omitempty"`
+	ParentFolderID              string             `json:"parentFolderId,omitempty"`
+	ScheduleStartMs             int64              `json:"scheduleStartMs,omitempty"`
+	ScheduleEndMs               int64              `json:"scheduleEndMs,omitempty"`
+	MonitoringMetadata          *Parameter         `json:"monitoringMetadata,omitempty"`
+	MonitoringMetadataTagNameKey string            `json:"monitoringMetadataTagNameKey,omitempty"`
+	ConsentSettings             *ConsentSettingInput `json:"consentSettings,omitempty"`
 }
 
 // TriggerInput represents input for creating/updating a trigger.
@@ -52,6 +74,10 @@ type TriggerInput struct {
 	EventName         *Parameter  `json:"eventName,omitempty"`
 	Parameter         []Parameter `json:"parameter,omitempty"` // For trigger groups: member trigger references
 	Notes             string      `json:"notes,omitempty"`
+	WaitForTags       *Parameter  `json:"waitForTags,omitempty"`
+	CheckValidation   *Parameter  `json:"checkValidation,omitempty"`
+	WaitForTagsTimeout *Parameter `json:"waitForTagsTimeout,omitempty"`
+	ParentFolderID    string      `json:"parentFolderId,omitempty"`
 }
 
 // Condition represents a filter condition for triggers.
@@ -63,11 +89,16 @@ type Condition struct {
 
 // VariableInput represents input for creating a variable.
 type VariableInput struct {
-	Name           string      `json:"name"`
-	Type           string      `json:"type"`
-	Parameter      []Parameter `json:"parameter,omitempty"`
-	Notes          string      `json:"notes,omitempty"`
-	ParentFolderID string      `json:"parentFolderId,omitempty"`
+	Name                string            `json:"name"`
+	Type                string            `json:"type"`
+	Parameter           []Parameter       `json:"parameter,omitempty"`
+	Notes               string            `json:"notes,omitempty"`
+	ParentFolderID      string            `json:"parentFolderId,omitempty"`
+	ScheduleStartMs     int64             `json:"scheduleStartMs,omitempty"`
+	ScheduleEndMs       int64             `json:"scheduleEndMs,omitempty"`
+	EnablingTriggerId   []string          `json:"enablingTriggerId,omitempty"`
+	DisablingTriggerId  []string          `json:"disablingTriggerId,omitempty"`
+	FormatValue         *FormatValueInput `json:"formatValue,omitempty"`
 }
 
 // VersionInput represents input for creating a version.

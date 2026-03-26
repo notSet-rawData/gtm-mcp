@@ -26,6 +26,10 @@ type TriggerToolInput struct {
 	EventNameJSON         string `json:"eventNameJson,omitempty" jsonschema:"description:Event name as JSON object {type, value} for timer triggers"`
 	ParameterJSON         string `json:"parameterJson,omitempty" jsonschema:"description:Trigger parameters as JSON array. For triggerGroup: [{key: triggerIds, type: list, list: [{type: triggerReference, value: triggerId}]}]"`
 	Notes                 string `json:"notes,omitempty" jsonschema:"description:Trigger notes (optional)"`
+	WaitForTagsJSON       string `json:"waitForTagsJson,omitempty" jsonschema:"description:Whether to wait for tags as JSON Parameter {type: boolean, value: true/false}. For link click/form submit triggers."`
+	CheckValidationJSON   string `json:"checkValidationJson,omitempty" jsonschema:"description:Whether to check validation as JSON Parameter {type: boolean, value: true/false}. For link click/form submit triggers."`
+	WaitForTagsTimeoutJSON string `json:"waitForTagsTimeoutJson,omitempty" jsonschema:"description:Max wait time in ms as JSON Parameter {type: integer, value: 2000}. For link click/form submit triggers."`
+	ParentFolderID        string `json:"parentFolderId,omitempty" jsonschema:"description:Parent folder ID for organizational purposes (optional)"`
 	// Fields for delete:
 	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
 	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
@@ -119,14 +123,42 @@ func handleTriggerCreate(ctx context.Context, input TriggerToolInput) (*mcp.Call
 		}
 	}
 
+	var waitForTags *Parameter
+	if input.WaitForTagsJSON != "" {
+		waitForTags = &Parameter{}
+		if err := json.Unmarshal([]byte(input.WaitForTagsJSON), waitForTags); err != nil {
+			return nil, nil, fmt.Errorf("invalid waitForTagsJson: %w", err)
+		}
+	}
+
+	var checkValidation *Parameter
+	if input.CheckValidationJSON != "" {
+		checkValidation = &Parameter{}
+		if err := json.Unmarshal([]byte(input.CheckValidationJSON), checkValidation); err != nil {
+			return nil, nil, fmt.Errorf("invalid checkValidationJson: %w", err)
+		}
+	}
+
+	var waitForTagsTimeout *Parameter
+	if input.WaitForTagsTimeoutJSON != "" {
+		waitForTagsTimeout = &Parameter{}
+		if err := json.Unmarshal([]byte(input.WaitForTagsTimeoutJSON), waitForTagsTimeout); err != nil {
+			return nil, nil, fmt.Errorf("invalid waitForTagsTimeoutJson: %w", err)
+		}
+	}
+
 	triggerInput := &TriggerInput{
-		Name:              input.Name,
-		Type:              input.Type,
-		Filter:            filter,
-		AutoEventFilter:   autoEventFilter,
-		CustomEventFilter: customEventFilter,
-		EventName:         eventName,
-		Notes:             input.Notes,
+		Name:               input.Name,
+		Type:               input.Type,
+		Filter:             filter,
+		AutoEventFilter:    autoEventFilter,
+		CustomEventFilter:  customEventFilter,
+		EventName:          eventName,
+		Notes:              input.Notes,
+		WaitForTags:        waitForTags,
+		CheckValidation:    checkValidation,
+		WaitForTagsTimeout: waitForTagsTimeout,
+		ParentFolderID:     input.ParentFolderID,
 	}
 
 	trigger, err := wc.Client.CreateTrigger(tCtx, wc.AccountID, wc.ContainerID, wc.WorkspaceID, triggerInput)
@@ -189,14 +221,42 @@ func handleTriggerUpdate(ctx context.Context, input TriggerToolInput) (*mcp.Call
 		}
 	}
 
+	var waitForTags *Parameter
+	if input.WaitForTagsJSON != "" {
+		waitForTags = &Parameter{}
+		if err := json.Unmarshal([]byte(input.WaitForTagsJSON), waitForTags); err != nil {
+			return nil, nil, fmt.Errorf("invalid waitForTagsJson: %w", err)
+		}
+	}
+
+	var checkValidation *Parameter
+	if input.CheckValidationJSON != "" {
+		checkValidation = &Parameter{}
+		if err := json.Unmarshal([]byte(input.CheckValidationJSON), checkValidation); err != nil {
+			return nil, nil, fmt.Errorf("invalid checkValidationJson: %w", err)
+		}
+	}
+
+	var waitForTagsTimeout *Parameter
+	if input.WaitForTagsTimeoutJSON != "" {
+		waitForTagsTimeout = &Parameter{}
+		if err := json.Unmarshal([]byte(input.WaitForTagsTimeoutJSON), waitForTagsTimeout); err != nil {
+			return nil, nil, fmt.Errorf("invalid waitForTagsTimeoutJson: %w", err)
+		}
+	}
+
 	triggerInput := &TriggerInput{
-		Name:              input.Name,
-		Type:              input.Type,
-		Filter:            filter,
-		AutoEventFilter:   autoEventFilter,
-		CustomEventFilter: customEventFilter,
-		Parameter:         params,
-		Notes:             input.Notes,
+		Name:               input.Name,
+		Type:               input.Type,
+		Filter:             filter,
+		AutoEventFilter:    autoEventFilter,
+		CustomEventFilter:  customEventFilter,
+		Parameter:          params,
+		Notes:              input.Notes,
+		WaitForTags:        waitForTags,
+		CheckValidation:    checkValidation,
+		WaitForTagsTimeout: waitForTagsTimeout,
+		ParentFolderID:     input.ParentFolderID,
 	}
 
 	trigger, err := wc.Client.UpdateTrigger(tCtx, path, triggerInput)

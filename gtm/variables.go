@@ -9,10 +9,18 @@ import (
 
 // Variable is a simplified representation of a GTM variable.
 type Variable struct {
-	VariableID string `json:"variableId"`
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Path       string `json:"path"`
+	VariableID         string   `json:"variableId"`
+	Name               string   `json:"name"`
+	Type               string   `json:"type"`
+	Path               string   `json:"path"`
+	Notes              string   `json:"notes,omitempty"`
+	ParentFolderID     string   `json:"parentFolderId,omitempty"`
+	Fingerprint        string   `json:"fingerprint,omitempty"`
+	ScheduleStartMs    int64    `json:"scheduleStartMs,omitempty"`
+	ScheduleEndMs      int64    `json:"scheduleEndMs,omitempty"`
+	EnablingTriggerId  []string `json:"enablingTriggerId,omitempty"`
+	DisablingTriggerId []string `json:"disablingTriggerId,omitempty"`
+	FormatValue        any      `json:"formatValue,omitempty"`
 	// Parameter contains variable configuration (lookup tables, JavaScript code, data layer variable names, etc.).
 	Parameter any `json:"parameter,omitempty"`
 }
@@ -43,31 +51,37 @@ func (c *Client) GetVariable(ctx context.Context, accountID, containerID, worksp
 		return nil, mapGoogleError(err)
 	}
 
-	result := Variable{
-		VariableID: v.VariableId,
-		Name:       v.Name,
-		Type:       v.Type,
-		Path:       v.Path,
+	result := toVariable(v)
+	return &result, nil
+}
+
+func toVariable(v *tagmanager.Variable) Variable {
+	variable := Variable{
+		VariableID:         v.VariableId,
+		Name:               v.Name,
+		Type:               v.Type,
+		Path:               v.Path,
+		Notes:              v.Notes,
+		ParentFolderID:     v.ParentFolderId,
+		Fingerprint:        v.Fingerprint,
+		ScheduleStartMs:    v.ScheduleStartMs,
+		ScheduleEndMs:      v.ScheduleEndMs,
+		EnablingTriggerId:  v.EnablingTriggerId,
+		DisablingTriggerId: v.DisablingTriggerId,
+	}
+	if v.FormatValue != nil {
+		variable.FormatValue = v.FormatValue
 	}
 	if len(v.Parameter) > 0 {
-		result.Parameter = v.Parameter
+		variable.Parameter = v.Parameter
 	}
-	return &result, nil
+	return variable
 }
 
 func toVariables(variables []*tagmanager.Variable) []Variable {
 	result := make([]Variable, 0, len(variables))
 	for _, v := range variables {
-		variable := Variable{
-			VariableID: v.VariableId,
-			Name:       v.Name,
-			Type:       v.Type,
-			Path:       v.Path,
-		}
-		if len(v.Parameter) > 0 {
-			variable.Parameter = v.Parameter
-		}
-		result = append(result, variable)
+		result = append(result, toVariable(v))
 	}
 	return result
 }
