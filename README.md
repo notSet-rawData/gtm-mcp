@@ -48,12 +48,15 @@ If you are a serious Data Agency, an Enterprise, or just someone who hates re-au
 | Feature | Community Tier | ✨ Enterprise Pro |
 | --- | --- | --- |
 | **GTM Capabilities** | Full Access | Full Access |
-| **GA4 Capabilities** | ❌ None | ✅ Full Access + Cross-Audits |
+| **GA4 Capabilities** | ❌ None | ✅ Full Access |
+| **GTM ↔ GA4 Cross-Audit** | ❌ None | ✅ Automated Gap Analysis & Orphan Detection |
+| **Property Replication** | ❌ None | ✅ 1-Click Clone GA4 Configurations |
 | **Connection Method** | Local STDIO & Cloud SSE | Local, Cloud, & M2M Proxy |
 | **Secure Token Storage** | ❌ Volatile ephemeral | ✅ Zero Trust at Rest (AES-256-GCM) |
 | **Agent Autonomy** | Good for punctual tasks | Uninterrupted 24/7 background CRONs |
 | **Multi-layer Governance**| ❌ None | ✅ Centralized Dashboard (Team Management) |
 | **Advanced Audits** | ❌ Basic CRUD | ✅ Journey Simulation, Consent validation, PII detection |
+| **Browser Execution** | ❌ None | ✅ Local Chrome & Anti-detect Cloud Browser (Camoufox) |
 
 **👉 Interested in the Enterprise Pro version?** 
 Contact me directly at [raul@measuremesh.io](mailto:raul@measuremesh.io) or [raul.fernandez@notset.es](mailto:raul.fernandez@notset.es) to discuss your needs.
