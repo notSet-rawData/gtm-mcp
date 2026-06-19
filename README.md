@@ -3,9 +3,9 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/notset-es/gtm-mcp-community.svg)](https://pkg.go.dev/github.com/notset-es/gtm-mcp-community)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The **NotSet GTM MCP Server** is a Model Context Protocol (MCP) gateway that gives your AI Agents (Cursor, Claude Desktop, Windsurf) superpower-level access to **Google Tag Manager** and **Google Analytics 4**. 
+The **NotSet GTM MCP Server** is a Model Context Protocol (MCP) gateway that gives your AI Agents (Cursor, Claude Desktop, Windsurf) superpower-level access to **Google Tag Manager**. 
 
-No more clicking through 50 menus to audit a dataLayer. Let your AI agent read, write, audit, and orchestrate tracking deployments directly.
+No more clicking through 50 menus to audit a dataLayer or configure tags. Let your AI agent read, write, audit, and orchestrate tracking deployments directly via code.
 
 ---
 
@@ -32,24 +32,40 @@ If your AI operates in the browser or via cloud SSE, just point it to our endpoi
 https://gtm-mcp.notset.es/sse
 ```
 
+## 🔑 Authentication
+The NotSet GTM MCP Server automatically handles authentication. 
+- **Option A (NPX Wrapper):** It will launch a secure Google OAuth flow in your browser on first run.
+- **Option B (Source/Self-Hosted):** It natively respects the `GOOGLE_APPLICATION_CREDENTIALS` environment variable if you prefer to use a strict Service Account for your agents.
+
 ---
 
-## 🛡️ Community vs SaaS Pro (Which do you need?)
+## 🛡️ Community vs Enterprise Pro (Which do you need?)
 
-The Community Edition is permanently free and open source. It contains the **full** GTM/GA4 capabilities and uses Ephemeral/Volatile memory. When your AI daemon restarts, your session drops to keep your workstation secure.
+The Community Edition is permanently free and open source. It contains **full GTM CRUD capabilities** and uses Ephemeral/Volatile memory. When your AI daemon restarts, your session drops to keep your workstation secure.
 
-If you are a serious Data Agency, an Enterprise, or just someone who hates re-authenticating, you need **Zero-Trust Encryption at Rest** and **Persistent Sessions**. 
+If you are a serious Data Agency, an Enterprise, or just someone who hates re-authenticating and needs advanced auditing, you might need the **Enterprise Pro** version with **Zero-Trust Encryption at Rest**, **Persistent Sessions**, and **Cross-Auditing**.
 
-| Feature | Community Tier | ✨ SaaS Pro / Enterprise |
+| Feature | Community Tier | ✨ Enterprise Pro |
 | --- | --- | --- |
-| **GTM/GA4 Capabilities** | Full Access | Full Access |
+| **GTM Capabilities** | Full Access | Full Access |
+| **GA4 Capabilities** | ❌ None | ✅ Full Access + Cross-Audits |
 | **Connection Method** | Local STDIO & Cloud SSE | Local, Cloud, & M2M Proxy |
 | **Secure Token Storage** | ❌ Volatile ephemeral | ✅ Zero Trust at Rest (AES-256-GCM) |
 | **Agent Autonomy** | Good for punctual tasks | Uninterrupted 24/7 background CRONs |
-| **Multi-layer Governance** | ❌ None | ✅ Centralized Dashboard (Team Management) |
-| **Advanced Audits** | ❌ Basic | ✅ PII detection, naming conventions, regex limits |
+| **Multi-layer Governance**| ❌ None | ✅ Centralized Dashboard (Team Management) |
+| **Advanced Audits** | ❌ Basic CRUD | ✅ Journey Simulation, Consent validation, PII detection |
 
-**[👉 Upgrade to NotSet SaaS Pro to stabilize your Agents](https://mcp.notset.es/pricing)**
+**👉 Interested in the Enterprise Pro version?** 
+Contact me directly at [raul@measuremesh.io](mailto:raul@measuremesh.io) or [raul.fernandez@notset.es](mailto:raul.fernandez@notset.es) to discuss your needs.
+
+---
+
+## 🎯 Example Prompts for your AI
+Once connected, try asking your agent:
+- *"Audit my GTM workspace `WS_ID` and tell me if any tags are missing a trigger."*
+- *"Create a new Custom HTML tag that fires on all pages, containing a simple console.log."*
+- *"Extract all RegEx patterns from the lookup variable `VAR_ID` and format them as a table."*
+- *"Delete the workspace `WS_ID`. Yes, I confirm this action."*
 
 ---
 
@@ -72,14 +88,16 @@ This server acts as a single Gateway (`gtm` tool) to avoid blasting the MCP toke
 
 | Resource | Supported Actions |
 | --- | --- |
-| `workspace` | list, create, status |
-| `tag` | list, get, create, update, delete, revert |
-| `variable` | list, get, create, update, delete, revert |
+| `workspace` | list, create, status, delete |
+| `tag` | list, get, create, update, delete, revert, append_list_entry, remove_list_entry, list_entries |
+| `variable` | list, get, create, update, delete, revert, add_lookup_entry, remove_lookup_entry, list_lookup_entries, append_list_entry, remove_list_entry, list_entries |
 | `trigger` | list, get, create, update, delete, revert |
-| `folder` | list, get, create, update, delete, move |
+| `folder` | list, get, create, update, delete, move, audit, revert |
+| `template` | list, get, create, update, delete, import, revert |
+| `version` | list, get, create, publish, compare, export, import |
 | `gtag_config` | list, get, create, update, delete |
 
-> **Note:** Community template tags use esoteric IDs like `cvt_CONTAINERID_NNN`. Do not let Claude guess the tag type. Ensure it runs the `templates_ref` action to discover the appropriate types.
+> **Note:** Community template tags use specific numeric IDs. Since advanced metadata discovery (`templates_ref`) is a Pro feature, you may need to provide the exact template IDs manually to your agent when creating custom tags.
 
 ---
 
