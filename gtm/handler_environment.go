@@ -8,22 +8,17 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// EnvironmentToolInput is the unified input for the environment tool.
 type EnvironmentToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,update,delete,description:Operation to perform on environments"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	// Fields for get/update/delete:
-	EnvironmentID string `json:"environmentId,omitempty" jsonschema:"description:Environment ID (required for get, update, delete)"`
-	// Fields for create/update:
+	Action             string `json:"action" jsonschema:"enum:list,get,create,update,delete,description:Operation to perform on environments"`
+	AccountID          string `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID        string `json:"containerId" jsonschema:"description:The GTM container ID"`
+	EnvironmentID      string `json:"environmentId,omitempty" jsonschema:"description:Environment ID (required for get, update, delete)"`
 	Name               string `json:"name,omitempty" jsonschema:"description:Environment name (required for create/update)"`
 	Description        string `json:"description,omitempty" jsonschema:"description:Environment description (optional)"`
 	ContainerVersionID string `json:"containerVersionId,omitempty" jsonschema:"description:Container version ID to point this environment at (optional)"`
 	EnableDebug        bool   `json:"enableDebug,omitempty" jsonschema:"description:Enable debug mode (optional)"`
-	// Fields for delete:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Confirm            bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
 }
-
 
 func handleEnvironmentList(ctx context.Context, input EnvironmentToolInput) (*mcp.CallToolResult, any, error) {
 	cc, err := resolveContainer(ctx, input.AccountID, input.ContainerID)

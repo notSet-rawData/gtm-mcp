@@ -8,25 +8,20 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// TransformationToolInput is the unified input for the transformation tool.
 type TransformationToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,update,delete,revert,description:Operation to perform on transformations"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	WorkspaceID string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
-	// Fields for get/update/delete:
-	TransformationID string `json:"transformationId,omitempty" jsonschema:"description:Transformation ID (required for get, update, delete)"`
-	// Fields for create/update:
-	Name           string `json:"name,omitempty" jsonschema:"description:Transformation name (required for create/update)"`
-	Type           string `json:"type,omitempty" jsonschema:"description:Transformation type: tf_exclude_params, tf_allow_params, or tf_augment_event (required for create)"`
-	Parameter      []Parameter `json:"parameter,omitempty" jsonschema:"description:Transformation parameters as array of objects. Each: {type, key, value}."`
-	ParametersJSON string      `json:"parametersJson,omitempty" jsonschema:"description:DEPRECATED: Transformation parameters as JSON string. Use parameter array instead."`
-	Notes          string `json:"notes,omitempty" jsonschema:"description:Transformation notes (optional)"`
-	// Fields for delete:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
-	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
+	Action           string      `json:"action" jsonschema:"enum:list,get,create,update,delete,revert,description:Operation to perform on transformations"`
+	AccountID        string      `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID      string      `json:"containerId" jsonschema:"description:The GTM container ID"`
+	WorkspaceID      string      `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
+	TransformationID string      `json:"transformationId,omitempty" jsonschema:"description:Transformation ID (required for get, update, delete)"`
+	Name             string      `json:"name,omitempty" jsonschema:"description:Transformation name (required for create/update)"`
+	Type             string      `json:"type,omitempty" jsonschema:"description:Transformation type: tf_exclude_params, tf_allow_params, or tf_augment_event (required for create)"`
+	Parameter        []Parameter `json:"parameter,omitempty" jsonschema:"description:Transformation parameters as array of objects. Each: {type, key, value}."`
+	ParametersJSON   string      `json:"parametersJson,omitempty" jsonschema:"description:DEPRECATED: Transformation parameters as JSON string. Use parameter array instead."`
+	Notes            string      `json:"notes,omitempty" jsonschema:"description:Transformation notes (optional)"`
+	Confirm          bool        `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Fingerprint      string      `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
 }
-
 
 func handleTransformationList(ctx context.Context, input TransformationToolInput) (*mcp.CallToolResult, any, error) {
 	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)

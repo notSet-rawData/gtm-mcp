@@ -93,11 +93,11 @@ func TestValidateContainerPath(t *testing.T) {
 
 func TestValidateTagInput(t *testing.T) {
 	tests := []struct {
-		name              string
-		tagName           string
-		tagType           string
-		firingTriggerIDs  []string
-		wantErr           bool
+		name             string
+		tagName          string
+		tagType          string
+		firingTriggerIDs []string
+		wantErr          bool
 	}{
 		{"valid", "My Tag", "html", []string{"1"}, false},
 		{"empty name", "", "html", []string{"1"}, true},
@@ -131,8 +131,6 @@ func TestBuildContainerPath(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
-
-// --- Tests for validate.go ---
 
 func TestValidateVariableReferences_AllValid(t *testing.T) {
 	vars := []Variable{

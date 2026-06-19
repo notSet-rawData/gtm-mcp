@@ -1,6 +1,5 @@
 package gtm
 
-// TagTemplate provides example parameter structures for creating tags.
 type TagTemplate struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -9,8 +8,6 @@ type TagTemplate struct {
 	Notes       string `json:"notes"`
 }
 
-// GetTagTemplates returns example parameter structures for common tag types.
-// These templates help LLMs create tags with the correct GTM API parameter format.
 func GetTagTemplates() []TagTemplate {
 	return []TagTemplate{
 		{
@@ -122,7 +119,6 @@ func GetTagTemplates() []TagTemplate {
 	}
 }
 
-// TriggerTemplate provides example structures for creating triggers.
 type TriggerTemplate struct {
 	Name                  string `json:"name"`
 	Description           string `json:"description"`
@@ -133,7 +129,6 @@ type TriggerTemplate struct {
 	Notes                 string `json:"notes"`
 }
 
-// GetTriggerTemplates returns example structures for common trigger types.
 func GetTriggerTemplates() []TriggerTemplate {
 	return []TriggerTemplate{
 		{
@@ -193,7 +188,6 @@ func GetTriggerTemplates() []TriggerTemplate {
 	}
 }
 
-// ClientTemplate provides example parameter structures for creating sGTM clients.
 type ClientTemplate struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -203,8 +197,6 @@ type ClientTemplate struct {
 	Notes       string `json:"notes"`
 }
 
-// GetClientTemplates returns example parameter structures for common server-side GTM client types.
-// These templates help LLMs create sGTM clients with the correct parameter format.
 func GetClientTemplates() []ClientTemplate {
 	return []ClientTemplate{
 		{
@@ -256,12 +248,9 @@ func GetClientTemplates() []ClientTemplate {
 ]`,
 			Notes: "Receives Measurement Protocol v2 requests at /mp/collect. Typically used for offline conversions, CRM events, or server-to-server data. Pair with a GA4 tag to forward events to your property.",
 		},
-		// NOTE: Facebook CAPI, TikTok Events API, etc. are sGTM TAGS (they send data out),
-		// not clients (which receive/claim incoming requests). Those belong in GetServerSideTagTemplates().
 	}
 }
 
-// ServerSideTagTemplate provides example parameter structures for sGTM tags.
 type ServerSideTagTemplate struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -270,9 +259,6 @@ type ServerSideTagTemplate struct {
 	Notes       string `json:"notes"`
 }
 
-// GetServerSideTagTemplates returns example parameter structures for server-side GTM tag types.
-// These are separate from web tag templates because sGTM tags use different type identifiers.
-// Source: datalayer-server-side-gtm notebook (built-in tags) + marketing-meta notebook (CAPI params).
 func GetServerSideTagTemplates() []ServerSideTagTemplate {
 	return []ServerSideTagTemplate{
 		{
@@ -336,7 +322,6 @@ func GetServerSideTagTemplates() []ServerSideTagTemplate {
 	}
 }
 
-// TransformationTemplate provides example parameter structures for sGTM transformations.
 type TransformationTemplate struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -345,7 +330,6 @@ type TransformationTemplate struct {
 	Notes       string `json:"notes"`
 }
 
-// GetTransformationTemplates returns example structures for common sGTM transformation types.
 func GetTransformationTemplates() []TransformationTemplate {
 	return []TransformationTemplate{
 		{

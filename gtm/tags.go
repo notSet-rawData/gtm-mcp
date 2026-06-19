@@ -7,13 +7,11 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// TagSequenceRef represents a setup or teardown tag reference.
 type TagSequenceRef struct {
-	TagName            string `json:"tagName"`
-	StopOnFailure      bool   `json:"stopOnFailure,omitempty"`
+	TagName       string `json:"tagName"`
+	StopOnFailure bool   `json:"stopOnFailure,omitempty"`
 }
 
-// Tag is a simplified representation of a GTM tag.
 type Tag struct {
 	TagID                        string           `json:"tagId"`
 	Name                         string           `json:"name"`
@@ -33,11 +31,9 @@ type Tag struct {
 	ScheduleEndMs                int64            `json:"scheduleEndMs,omitempty"`
 	MonitoringMetadataTagNameKey string           `json:"monitoringMetadataTagNameKey,omitempty"`
 	ConsentSettings              any              `json:"consentSettings,omitempty"`
-	// Parameter contains tag configuration (pixel IDs, HTML code, measurement IDs, etc.).
-	Parameter any `json:"parameter,omitempty"`
+	Parameter                    any              `json:"parameter,omitempty"`
 }
 
-// ListTags returns all tags in a workspace.
 func (c *Client) ListTags(ctx context.Context, accountID, containerID, workspaceID string) ([]Tag, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s", accountID, containerID, workspaceID)
 
@@ -51,7 +47,6 @@ func (c *Client) ListTags(ctx context.Context, accountID, containerID, workspace
 	return toTags(resp.Tag), nil
 }
 
-// GetTag returns a specific tag by ID.
 func (c *Client) GetTag(ctx context.Context, accountID, containerID, workspaceID, tagID string) (*Tag, error) {
 	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/tags/%s",
 		accountID, containerID, workspaceID, tagID)

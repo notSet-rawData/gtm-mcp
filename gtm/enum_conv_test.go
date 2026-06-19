@@ -7,56 +7,41 @@ func TestConvertEnumValue(t *testing.T) {
 		input    string
 		expected string
 	}{
-		// Server-side built-in vars (the original bug)
 		{"requestPath", "REQUEST_PATH"},
 		{"requestMethod", "REQUEST_METHOD"},
 		{"clientName", "CLIENT_NAME"},
 		{"queryString", "QUERY_STRING"},
 		{"visitorRegion", "VISITOR_REGION"},
-		// Web built-in vars
 		{"pageUrl", "PAGE_URL"},
 		{"debugMode", "DEBUG_MODE"},
 		{"eventName", "EVENT_NAME"},
 		{"clickElement", "CLICK_ELEMENT"},
-		// Trigger types
 		{"customEvent", "CUSTOM_EVENT"},
 		{"domReady", "DOM_READY"},
 		{"windowLoaded", "WINDOW_LOADED"},
 		{"youTubeVideo", "YOU_TUBE_VIDEO"},
-		// Single-word overrides
 		{"template", "TEMPLATE"},
 		{"boolean", "BOOLEAN"},
 		{"pageview", "PAGEVIEW"},
 		{"click", "CLICK"},
-		// Already SCREAMING_CASE — leave as-is
 		{"CONTAINER_VERSION", "CONTAINER_VERSION"},
 		{"REQUEST_PATH", "REQUEST_PATH"},
-		// Type IDs — should NOT convert
 		{"gaawc", "gaawc"},
 		{"cvt_198845464_347", "cvt_198845464_347"},
-		// Tag firing options
 		{"oncePerEvent", "ONCE_PER_EVENT"},
 		{"oncePerLoad", "ONCE_PER_LOAD"},
-		// Conditions
 		{"startsWith", "STARTS_WITH"},
 		{"matchRegex", "MATCH_REGEX"},
-		// Consent
 		{"notSet", "NOT_SET"},
 		{"notNeeded", "NOT_NEEDED"},
-		// Context arrays
 		{"server", "SERVER"},
 		{"web", "WEB"},
-		// Future unknown camelCase (should auto-convert)
 		{"someNewBuiltInVariable", "SOME_NEW_BUILT_IN_VARIABLE"},
-		// Firebase types
 		{"firebaseAppException", "FIREBASE_APP_EXCEPTION"},
-		// Scroll/visibility
 		{"scrollDepthThreshold", "SCROLL_DEPTH_THRESHOLD"},
 		{"elementVisibilityFirstTime", "ELEMENT_VISIBILITY_FIRST_TIME"},
-		// Server trigger types
 		{"consentInit", "CONSENT_INIT"},
 		{"serverPageview", "SERVER_PAGEVIEW"},
-		// Parameter types
 		{"triggerReference", "TRIGGER_REFERENCE"},
 		{"tagReference", "TAG_REFERENCE"},
 	}
@@ -94,24 +79,20 @@ func TestReverseEnumValue(t *testing.T) {
 		input    string
 		expected string
 	}{
-		// SCREAMING → camelCase
 		{"REQUEST_PATH", "requestPath"},
 		{"CUSTOM_EVENT", "customEvent"},
 		{"DOM_READY", "domReady"},
 		{"YOU_TUBE_VIDEO", "youTubeVideo"},
 		{"ONCE_PER_EVENT", "oncePerEvent"},
 		{"NOT_SET", "notSet"},
-		// Override single-word
 		{"TEMPLATE", "template"},
 		{"BOOLEAN", "boolean"},
 		{"PAGEVIEW", "pageview"},
 		{"CLICK", "click"},
 		{"SERVER", "server"},
 		{"WEB", "web"},
-		// Already camelCase — leave as-is
 		{"requestPath", "requestPath"},
 		{"gaawc", "gaawc"},
-		// Type IDs with underscores+digits — leave as-is
 		{"cvt_198845464_347", "cvt_198845464_347"},
 	}
 
@@ -144,7 +125,6 @@ func TestScreamingToCamelCase(t *testing.T) {
 }
 
 func TestRoundtripConversion(t *testing.T) {
-	// Verify: camelCase → SCREAMING → camelCase = identity
 	camelValues := []string{
 		"requestPath", "customEvent", "domReady", "youTubeVideo",
 		"scrollDepthThreshold", "elementVisibilityFirstTime",
@@ -160,7 +140,6 @@ func TestRoundtripConversion(t *testing.T) {
 		}
 	}
 
-	// Verify: SCREAMING → camelCase → SCREAMING = identity
 	screamingValues := []string{
 		"REQUEST_PATH", "CUSTOM_EVENT", "DOM_READY", "YOU_TUBE_VIDEO",
 		"SCROLL_DEPTH_THRESHOLD", "ONCE_PER_EVENT", "NOT_SET",

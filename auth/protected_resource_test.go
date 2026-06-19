@@ -24,7 +24,6 @@ func TestProtectedResourceMetadataHandler_StaticBaseURL(t *testing.T) {
 		t.Fatalf("failed to decode: %v", err)
 	}
 
-	// Resource should have trailing slash for root URLs (Gemini CLI compatibility)
 	if meta.Resource != "https://mcp.notset.es/" {
 		t.Errorf("resource = %q, want https://mcp.notset.es/ (with trailing slash)", meta.Resource)
 	}
@@ -68,7 +67,6 @@ func TestProtectedResourceMetadataHandler_DynamicResolver_UntrustedHost(t *testi
 	var meta ProtectedResourceMetadata
 	json.NewDecoder(w.Body).Decode(&meta)
 
-	// Should fall back to configured URL
 	if meta.Resource != "https://mcp.notset.es/" {
 		t.Errorf("resource = %q, should use configured URL not evil.com", meta.Resource)
 	}
@@ -128,11 +126,9 @@ func TestProtectedResourceMetadataHandler_MethodNotAllowed(t *testing.T) {
 }
 
 func TestMetadataConsistency_IssuerMatchesAuthServer(t *testing.T) {
-	// Verify that the issuer in auth metadata matches the authorization_servers
-	// entry in protected resource metadata (without trailing slash)
 	baseURL := "https://mcp.notset.es"
 
-	authMeta := NewOAuthMetadata(baseURL)
+	authMeta := NewOAuthMetadata(baseURL, false)
 	resMeta := NewProtectedResourceMetadata(baseURL, baseURL)
 
 	if len(resMeta.AuthorizationServers) != 1 {

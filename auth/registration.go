@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// ClientRegistrationRequest per RFC 7591
 type ClientRegistrationRequest struct {
 	RedirectURIs            []string `json:"redirect_uris"`
 	ClientName              string   `json:"client_name,omitempty"`
@@ -19,7 +18,6 @@ type ClientRegistrationRequest struct {
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method,omitempty"`
 }
 
-// ClientRegistrationResponse per RFC 7591
 type ClientRegistrationResponse struct {
 	ClientID                string   `json:"client_id"`
 	ClientSecret            string   `json:"client_secret,omitempty"`
@@ -31,7 +29,6 @@ type ClientRegistrationResponse struct {
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
 }
 
-// RegistrationHandler handles POST /register
 func (s *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -44,8 +41,6 @@ func (s *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate redirect URIs per RFC 7591
-	// DCR accepts any valid HTTPS URI (or localhost for development)
 	if len(req.RedirectURIs) == 0 {
 		s.registrationError(w, "invalid_redirect_uri", "At least one redirect_uri required")
 		return
@@ -58,7 +53,6 @@ func (s *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Validate redirect URI domains against allowlist if configured
 	if len(s.allowedDCRDomains) > 0 {
 		for _, uri := range req.RedirectURIs {
 			parsed, _ := url.Parse(uri)
@@ -74,7 +68,6 @@ func (s *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Generate client_id
 	clientID, err := GenerateToken(16)
 	if err != nil {
 		s.logger.Error("failed to generate client_id", "error", err)
@@ -82,7 +75,6 @@ func (s *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For public clients (MCP), we don't generate a client_secret
 	resp := ClientRegistrationResponse{
 		ClientID:                clientID,
 		ClientSecretExpiresAt:   0, // Does not expire
@@ -93,7 +85,6 @@ func (s *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		TokenEndpointAuthMethod: "none", // Public client
 	}
 
-	// Store the registered client
 	clientInfo := &ClientInfo{
 		ClientID:                clientID,
 		RedirectURIs:            req.RedirectURIs,
@@ -127,10 +118,6 @@ func (s *Server) registrationError(w http.ResponseWriter, errCode, errDesc strin
 	json.NewEncoder(w).Encode(resp)
 }
 
-// isValidDCRRedirectURI validates redirect URIs for Dynamic Client Registration.
-// Per RFC 7591, we accept any valid HTTPS URI, plus localhost for development,
-// plus known custom URI schemes for MCP IDE clients (e.g. Cursor).
-// This is more permissive than the hardcoded list used for non-DCR clients.
 func isValidDCRRedirectURI(uri string) bool {
 	parsed, err := url.Parse(uri)
 	if err != nil {
@@ -141,24 +128,20 @@ func isValidDCRRedirectURI(uri string) bool {
 		return false
 	}
 
-	// Allow known custom URI schemes for MCP IDE clients
 	for _, prefix := range validRedirectCustomSchemes {
 		if strings.HasPrefix(uri, prefix) {
 			return true
 		}
 	}
 
-	// Must have a host for HTTP(S) URIs
 	if parsed.Host == "" {
 		return false
 	}
 
-	// Allow localhost for development (http or https)
 	host := strings.Split(parsed.Host, ":")[0] // Remove port if present
 	if host == "localhost" || host == "127.0.0.1" {
 		return parsed.Scheme == "http" || parsed.Scheme == "https"
 	}
 
-	// For all other hosts, require HTTPS
 	return parsed.Scheme == "https"
 }

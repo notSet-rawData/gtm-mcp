@@ -12,23 +12,17 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// DeriveKey derives a 32-byte AES-256 key from a secret string using HKDF (RFC 5869).
-// Uses SHA-256 as the PRF with a fixed salt and contextual info string,
-// making the derivation resistant to brute-force even with lower-entropy secrets.
 func DeriveKey(secret string) []byte {
 	salt := []byte("gtm-mcp-server-token-encryption-v1")
 	info := []byte("aes-256-gcm-token-store")
 	hkdfReader := hkdf.New(sha256.New, []byte(secret), salt, info)
 	key := make([]byte, 32)
 	if _, err := io.ReadFull(hkdfReader, key); err != nil {
-		// This should never fail with valid inputs
 		panic("hkdf key derivation failed: " + err.Error())
 	}
 	return key
 }
 
-// Encrypt encrypts plaintext using AES-256-GCM with the given key.
-// Returns a base64-encoded string containing nonce + ciphertext.
 func Encrypt(plaintext string, key []byte) (string, error) {
 	if len(plaintext) == 0 {
 		return "", nil
@@ -53,7 +47,6 @@ func Encrypt(plaintext string, key []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-// Decrypt decrypts a base64-encoded AES-256-GCM ciphertext with the given key.
 func Decrypt(encoded string, key []byte) (string, error) {
 	if len(encoded) == 0 {
 		return "", nil

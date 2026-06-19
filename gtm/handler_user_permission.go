@@ -8,20 +8,15 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// UserPermissionToolInput is the unified input for the user_permission tool.
 type UserPermissionToolInput struct {
-	Action    string `json:"action" jsonschema:"enum:list,get,create,update,delete,description:Operation to perform on user permissions"`
-	AccountID string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	// Fields for get/update/delete:
-	PermissionID string `json:"permissionId,omitempty" jsonschema:"description:Permission ID (required for get, update, delete)"`
-	// Fields for create/update:
+	Action              string `json:"action" jsonschema:"enum:list,get,create,update,delete,description:Operation to perform on user permissions"`
+	AccountID           string `json:"accountId" jsonschema:"description:The GTM account ID"`
+	PermissionID        string `json:"permissionId,omitempty" jsonschema:"description:Permission ID (required for get, update, delete)"`
 	EmailAddress        string `json:"emailAddress,omitempty" jsonschema:"description:User email address (required for create/update)"`
 	AccountPermission   string `json:"accountPermission,omitempty" jsonschema:"description:Account-level permission: noAccess, read, edit, publish, admin"`
 	ContainerAccessJSON string `json:"containerAccessJson,omitempty" jsonschema:"description:Container-level permissions as JSON array. Each entry: {containerId, permission}. Values: noAccess, read, edit, publish, approve"`
-	// Fields for delete:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Confirm             bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
 }
-
 
 func handleUserPermissionList(ctx context.Context, input UserPermissionToolInput) (*mcp.CallToolResult, any, error) {
 	if input.AccountID == "" {

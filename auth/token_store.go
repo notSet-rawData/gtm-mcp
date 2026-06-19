@@ -18,26 +18,28 @@ var (
 	ErrClientNotFound = errors.New("client not found")
 )
 
-// TokenInfo holds information about an issued token and the associated Google tokens.
+type AuthMethod string
+
+const (
+	AuthMethodOAuth          AuthMethod = "oauth"           // Interactive OAuth 2.1 flow
+	AuthMethodServiceAccount AuthMethod = "service_account" // Google Service Account JWT
+)
+
 type TokenInfo struct {
-	// Our token (issued to Claude)
 	AccessToken      string
 	RefreshToken     string
 	ExpiresAt        time.Time
 	RefreshExpiresAt time.Time
 
-	// Google tokens (for calling GTM API)
 	GoogleToken *oauth2.Token
 
-	// Metadata
 	ClientID  string
 	CreatedAt time.Time
 }
 
-// AuthState holds temporary state during OAuth flow.
 type AuthState struct {
 	State        string
-	ClientState  string    // Client's original state parameter (stored separately, not concatenated)
+	ClientState  string // Client's original state parameter (stored separately, not concatenated)
 	CodeVerifier string
 	RedirectURI  string
 	ClientID     string
@@ -45,7 +47,6 @@ type AuthState struct {
 	CreatedAt    time.Time
 }
 
-// ClientInfo holds information about a registered OAuth client (RFC 7591).
 type ClientInfo struct {
 	ClientID                string
 	RedirectURIs            []string
@@ -56,9 +57,7 @@ type ClientInfo struct {
 	CreatedAt               time.Time
 }
 
-// TokenStore defines the interface for token storage.
 type TokenStore interface {
-	// Token operations
 	StoreToken(info *TokenInfo) error
 	GetTokenByAccess(accessToken string) (*TokenInfo, error)
 	GetTokenByAccessIncludeExpired(accessToken string) (*TokenInfo, error)
@@ -67,33 +66,27 @@ type TokenStore interface {
 	RotateToken(oldAccessToken string, newToken *TokenInfo) error
 	UpdateGoogleToken(accessToken string, googleToken *oauth2.Token) error
 
-	// State operations (for OAuth flow)
 	StoreState(state *AuthState) error
 	GetState(stateValue string) (*AuthState, error)
 	ConsumeState(stateValue string) (*AuthState, error)
 	DeleteState(stateValue string) error
 
-	// Client registration operations (RFC 7591)
 	StoreClient(client *ClientInfo) error
 	GetClient(clientID string) (*ClientInfo, error)
 	DeleteClient(clientID string) error
 }
 
-// MemoryTokenStore is an in-memory implementation of TokenStore.
 type MemoryTokenStore struct {
-	mu     sync.RWMutex
-	tokens map[string]*TokenInfo  // keyed by access token
-	states map[string]*AuthState  // keyed by state value
+	mu      sync.RWMutex
+	tokens  map[string]*TokenInfo  // keyed by access token
+	states  map[string]*AuthState  // keyed by state value
 	clients map[string]*ClientInfo // keyed by client_id
 
-	// Secondary index for refresh token lookup
 	refreshIndex map[string]string // refresh token -> access token
 
-	// Cancellation for cleanup goroutine
 	cancel context.CancelFunc
 }
 
-// NewMemoryTokenStore creates a new in-memory token store.
 func NewMemoryTokenStore() *MemoryTokenStore {
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &MemoryTokenStore{
@@ -104,13 +97,11 @@ func NewMemoryTokenStore() *MemoryTokenStore {
 		cancel:       cancel,
 	}
 
-	// Start cleanup goroutine
 	go store.cleanup(ctx)
 
 	return store
 }
 
-// Close stops the cleanup goroutine and releases resources.
 func (s *MemoryTokenStore) Close() error {
 	s.cancel()
 	return nil
@@ -189,19 +180,15 @@ func (s *MemoryTokenStore) DeleteToken(accessToken string) error {
 	return nil
 }
 
-// RotateToken atomically replaces an old token with a new one.
-// Store new first, then delete old — prevents window where neither exists.
 func (s *MemoryTokenStore) RotateToken(oldAccessToken string, newToken *TokenInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Store new token first
 	s.tokens[newToken.AccessToken] = newToken
 	if newToken.RefreshToken != "" {
 		s.refreshIndex[newToken.RefreshToken] = newToken.AccessToken
 	}
 
-	// Then delete old token
 	if oldInfo, ok := s.tokens[oldAccessToken]; ok {
 		delete(s.refreshIndex, oldInfo.RefreshToken)
 	}
@@ -244,7 +231,6 @@ func (s *MemoryTokenStore) GetState(stateValue string) (*AuthState, error) {
 		return nil, ErrInvalidState
 	}
 
-	// States expire after 10 minutes
 	if time.Since(state.CreatedAt) > 10*time.Minute {
 		return nil, ErrInvalidState
 	}
@@ -252,7 +238,6 @@ func (s *MemoryTokenStore) GetState(stateValue string) (*AuthState, error) {
 	return state, nil
 }
 
-// ConsumeState atomically gets and deletes a state, making auth codes single-use.
 func (s *MemoryTokenStore) ConsumeState(stateValue string) (*AuthState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -279,7 +264,6 @@ func (s *MemoryTokenStore) DeleteState(stateValue string) error {
 	return nil
 }
 
-// StoreClient stores a registered OAuth client.
 func (s *MemoryTokenStore) StoreClient(client *ClientInfo) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -288,7 +272,6 @@ func (s *MemoryTokenStore) StoreClient(client *ClientInfo) error {
 	return nil
 }
 
-// GetClient retrieves a registered OAuth client by client_id.
 func (s *MemoryTokenStore) GetClient(clientID string) (*ClientInfo, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -301,7 +284,6 @@ func (s *MemoryTokenStore) GetClient(clientID string) (*ClientInfo, error) {
 	return client, nil
 }
 
-// DeleteClient removes a registered OAuth client.
 func (s *MemoryTokenStore) DeleteClient(clientID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -310,7 +292,6 @@ func (s *MemoryTokenStore) DeleteClient(clientID string) error {
 	return nil
 }
 
-// cleanup periodically removes expired tokens, states, and stale clients.
 func (s *MemoryTokenStore) cleanup(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
@@ -322,8 +303,6 @@ func (s *MemoryTokenStore) cleanup(ctx context.Context) {
 		case <-ticker.C:
 			now := time.Now()
 
-			// Delete directly under write lock to avoid race conditions
-			// between collecting expired keys and deleting them.
 			s.mu.Lock()
 			for accessToken, info := range s.tokens {
 				accessExpired := now.After(info.ExpiresAt.Add(1 * time.Hour))
@@ -338,13 +317,11 @@ func (s *MemoryTokenStore) cleanup(ctx context.Context) {
 					delete(s.states, stateValue)
 				}
 			}
-			// Evict oldest 10% of clients if over limit
 			if len(s.clients) > maxClients {
 				evictCount := len(s.clients) / 10
 				if evictCount < 1 {
 					evictCount = 1
 				}
-				// Collect all clients sorted by age (simple: iterate N times)
 				for i := 0; i < evictCount; i++ {
 					var oldest string
 					var oldestTime time.Time
@@ -367,7 +344,6 @@ func (s *MemoryTokenStore) cleanup(ctx context.Context) {
 	}
 }
 
-// GenerateToken creates a cryptographically secure random token.
 func GenerateToken(length int) (string, error) {
 	bytes := make([]byte, length)
 	if _, err := rand.Read(bytes); err != nil {

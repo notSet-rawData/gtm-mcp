@@ -1,113 +1,101 @@
 package gtm
 
-// boolPtr returns a pointer to the given bool value.
 func boolPtr(b bool) *bool {
 	return &b
 }
-// Parameter represents a GTM parameter structure.
-// Used in tags, triggers, and variables.
+
 type Parameter struct {
-	Type  string      `json:"type"`            // "template", "boolean", "integer", "list", "map"
+	Type  string      `json:"type"` // "template", "boolean", "integer", "list", "map"
 	Key   string      `json:"key"`
 	Value string      `json:"value,omitempty"`
 	List  []Parameter `json:"list,omitempty"`
 	Map   []Parameter `json:"map,omitempty"`
 }
 
-// SetupTagInput represents a setup tag reference for tag sequencing.
 type SetupTagInput struct {
 	TagName            string `json:"tagName"`
 	StopOnSetupFailure bool   `json:"stopOnSetupFailure,omitempty"`
 }
 
-// TeardownTagInput represents a teardown tag reference for tag sequencing.
 type TeardownTagInput struct {
 	TagName               string `json:"tagName"`
 	StopTeardownOnFailure bool   `json:"stopTeardownOnFailure,omitempty"`
 }
 
-// ConsentSettingInput represents consent settings for a tag.
 type ConsentSettingInput struct {
-	ConsentStatus string    `json:"consentStatus,omitempty"` // notSet, notNeeded, needed
+	ConsentStatus string     `json:"consentStatus,omitempty"` // notSet, notNeeded, needed
 	ConsentType   *Parameter `json:"consentType,omitempty"`   // LIST type parameter with consent types
 }
 
-// FormatValueInput represents format value settings for a variable.
 type FormatValueInput struct {
-	CaseConversionType    string     `json:"caseConversionType,omitempty"` // none, lowercase, uppercase
-	ConvertNullToValue    *Parameter `json:"convertNullToValue,omitempty"`
+	CaseConversionType      string     `json:"caseConversionType,omitempty"` // none, lowercase, uppercase
+	ConvertNullToValue      *Parameter `json:"convertNullToValue,omitempty"`
 	ConvertUndefinedToValue *Parameter `json:"convertUndefinedToValue,omitempty"`
-	ConvertTrueToValue    *Parameter `json:"convertTrueToValue,omitempty"`
-	ConvertFalseToValue   *Parameter `json:"convertFalseToValue,omitempty"`
+	ConvertTrueToValue      *Parameter `json:"convertTrueToValue,omitempty"`
+	ConvertFalseToValue     *Parameter `json:"convertFalseToValue,omitempty"`
 }
 
-// TagInput represents input for creating/updating a tag.
 type TagInput struct {
-	Name                        string             `json:"name"`
-	Type                        string             `json:"type"`
-	FiringTriggerId             []string           `json:"firingTriggerId"`
-	BlockingTriggerId           []string           `json:"blockingTriggerId,omitempty"`
-	Parameter                   []Parameter        `json:"parameter,omitempty"`
-	Notes                       string             `json:"notes,omitempty"`
-	Paused                      *bool              `json:"paused,omitempty"`
-	TagFiringOption             string             `json:"tagFiringOption,omitempty"`
-	SetupTag                    []SetupTagInput    `json:"setupTag,omitempty"`
-	TeardownTag                 []TeardownTagInput `json:"teardownTag,omitempty"`
-	ClearSetupTag               bool               `json:"-"` // When true, explicitly clear setup tags
-	ClearTeardownTag            bool               `json:"-"` // When true, explicitly clear teardown tags
-	Priority                    *Parameter         `json:"priority,omitempty"`
-	ParentFolderID              string             `json:"parentFolderId,omitempty"`
-	ScheduleStartMs             int64              `json:"scheduleStartMs,omitempty"`
-	ScheduleEndMs               int64              `json:"scheduleEndMs,omitempty"`
-	MonitoringMetadata          *Parameter         `json:"monitoringMetadata,omitempty"`
-	MonitoringMetadataTagNameKey string            `json:"monitoringMetadataTagNameKey,omitempty"`
-	ConsentSettings             *ConsentSettingInput `json:"consentSettings,omitempty"`
+	Name                         string               `json:"name"`
+	Type                         string               `json:"type"`
+	FiringTriggerId              []string             `json:"firingTriggerId"`
+	BlockingTriggerId            []string             `json:"blockingTriggerId,omitempty"`
+	Parameter                    []Parameter          `json:"parameter,omitempty"`
+	Notes                        string               `json:"notes,omitempty"`
+	Paused                       *bool                `json:"paused,omitempty"`
+	TagFiringOption              string               `json:"tagFiringOption,omitempty"`
+	SetupTag                     []SetupTagInput      `json:"setupTag,omitempty"`
+	TeardownTag                  []TeardownTagInput   `json:"teardownTag,omitempty"`
+	ClearSetupTag                bool                 `json:"-"` // When true, explicitly clear setup tags
+	ClearTeardownTag             bool                 `json:"-"` // When true, explicitly clear teardown tags
+	Priority                     *Parameter           `json:"priority,omitempty"`
+	ParentFolderID               string               `json:"parentFolderId,omitempty"`
+	ScheduleStartMs              int64                `json:"scheduleStartMs,omitempty"`
+	ScheduleEndMs                int64                `json:"scheduleEndMs,omitempty"`
+	MonitoringMetadata           *Parameter           `json:"monitoringMetadata,omitempty"`
+	MonitoringMetadataTagNameKey string               `json:"monitoringMetadataTagNameKey,omitempty"`
+	ConsentSettings              *ConsentSettingInput `json:"consentSettings,omitempty"`
 }
 
-// TriggerInput represents input for creating/updating a trigger.
 type TriggerInput struct {
-	Name              string      `json:"name"`
-	Type              string      `json:"type"`
-	Filter            []Condition `json:"filter,omitempty"`
-	AutoEventFilter   []Condition `json:"autoEventFilter,omitempty"`
-	CustomEventFilter []Condition `json:"customEventFilter,omitempty"`
-	EventName         *Parameter  `json:"eventName,omitempty"`
-	Parameter         []Parameter `json:"parameter,omitempty"` // For trigger groups: member trigger references
-	Notes             string      `json:"notes,omitempty"`
-	WaitForTags       *Parameter  `json:"waitForTags,omitempty"`
-	CheckValidation   *Parameter  `json:"checkValidation,omitempty"`
-	WaitForTagsTimeout *Parameter `json:"waitForTagsTimeout,omitempty"`
-	ParentFolderID    string      `json:"parentFolderId,omitempty"`
+	Name               string      `json:"name"`
+	Type               string      `json:"type"`
+	Filter             []Condition `json:"filter,omitempty"`
+	AutoEventFilter    []Condition `json:"autoEventFilter,omitempty"`
+	CustomEventFilter  []Condition `json:"customEventFilter,omitempty"`
+	EventName          *Parameter  `json:"eventName,omitempty"`
+	Parameter          []Parameter `json:"parameter,omitempty"` // For trigger groups: member trigger references
+	Notes              string      `json:"notes,omitempty"`
+	WaitForTags        *Parameter  `json:"waitForTags,omitempty"`
+	CheckValidation    *Parameter  `json:"checkValidation,omitempty"`
+	WaitForTagsTimeout *Parameter  `json:"waitForTagsTimeout,omitempty"`
+	ParentFolderID     string      `json:"parentFolderId,omitempty"`
 }
 
-// Condition represents a filter condition for triggers.
 type Condition struct {
 	Type      string      `json:"type"` // "equals", "contains", "startsWith", etc.
 	Negate    bool        `json:"negate,omitempty"`
 	Parameter []Parameter `json:"parameter"`
 }
 
-// VariableInput represents input for creating a variable.
 type VariableInput struct {
-	Name                string            `json:"name"`
-	Type                string            `json:"type"`
-	Parameter           []Parameter       `json:"parameter,omitempty"`
-	Notes               string            `json:"notes,omitempty"`
-	ParentFolderID      string            `json:"parentFolderId,omitempty"`
-	ScheduleStartMs     int64             `json:"scheduleStartMs,omitempty"`
-	ScheduleEndMs       int64             `json:"scheduleEndMs,omitempty"`
-	EnablingTriggerId   []string          `json:"enablingTriggerId,omitempty"`
-	DisablingTriggerId  []string          `json:"disablingTriggerId,omitempty"`
-	FormatValue         *FormatValueInput `json:"formatValue,omitempty"`
+	Name               string            `json:"name"`
+	Type               string            `json:"type"`
+	Parameter          []Parameter       `json:"parameter,omitempty"`
+	Notes              string            `json:"notes,omitempty"`
+	ParentFolderID     string            `json:"parentFolderId,omitempty"`
+	ScheduleStartMs    int64             `json:"scheduleStartMs,omitempty"`
+	ScheduleEndMs      int64             `json:"scheduleEndMs,omitempty"`
+	EnablingTriggerId  []string          `json:"enablingTriggerId,omitempty"`
+	DisablingTriggerId []string          `json:"disablingTriggerId,omitempty"`
+	FormatValue        *FormatValueInput `json:"formatValue,omitempty"`
 }
 
-// VersionInput represents input for creating a version.
 type VersionInput struct {
 	Name  string `json:"name,omitempty"`
 	Notes string `json:"notes,omitempty"`
 }
 
-// CreatedTag represents the result of creating a tag.
 type CreatedTag struct {
 	TagID       string `json:"tagId"`
 	Name        string `json:"name"`
@@ -116,7 +104,6 @@ type CreatedTag struct {
 	Fingerprint string `json:"fingerprint"`
 }
 
-// CreatedTrigger represents the result of creating a trigger.
 type CreatedTrigger struct {
 	TriggerID   string `json:"triggerId"`
 	Name        string `json:"name"`
@@ -125,7 +112,6 @@ type CreatedTrigger struct {
 	Fingerprint string `json:"fingerprint"`
 }
 
-// CreatedVariable represents the result of creating a variable.
 type CreatedVariable struct {
 	VariableID  string `json:"variableId"`
 	Name        string `json:"name"`
@@ -134,7 +120,6 @@ type CreatedVariable struct {
 	Fingerprint string `json:"fingerprint"`
 }
 
-// CreatedVersion represents the result of creating a version.
 type CreatedVersion struct {
 	VersionID     string `json:"containerVersionId"`
 	Name          string `json:"name"`
@@ -142,20 +127,17 @@ type CreatedVersion struct {
 	CompilerError bool   `json:"compilerError,omitempty"`
 }
 
-// BuiltInVariable represents an enabled built-in variable in a workspace.
 type BuiltInVariable struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
 	Path string `json:"path"`
 }
 
-// ClientInfo represents a GTM client (server-side containers only).
 type ClientInfo struct {
 	ClientID       string `json:"clientId"`
 	Name           string `json:"name"`
 	Type           string `json:"type"`
 	Priority       int64  `json:"priority,omitempty"`
-	// Using any to avoid recursive type cycle in schema generation.
 	Parameter      any    `json:"parameter,omitempty"`
 	Notes          string `json:"notes,omitempty"`
 	ParentFolderID string `json:"parentFolderId,omitempty"`
@@ -163,7 +145,6 @@ type ClientInfo struct {
 	Fingerprint    string `json:"fingerprint"`
 }
 
-// ClientInput represents input for creating/updating a client.
 type ClientInput struct {
 	Name      string      `json:"name"`
 	Type      string      `json:"type"`
@@ -172,7 +153,6 @@ type ClientInput struct {
 	Notes     string      `json:"notes,omitempty"`
 }
 
-// CreatedClient represents the result of creating a client.
 type CreatedClient struct {
 	ClientID    string `json:"clientId"`
 	Name        string `json:"name"`
@@ -181,20 +161,17 @@ type CreatedClient struct {
 	Fingerprint string `json:"fingerprint"`
 }
 
-// TransformationInfo represents a GTM transformation (server-side containers only).
 type TransformationInfo struct {
 	TransformationID string `json:"transformationId"`
 	Name             string `json:"name"`
 	Type             string `json:"type"`
-	// Using any to avoid recursive type cycle in schema generation.
-	Parameter      any    `json:"parameter,omitempty"`
-	Notes          string `json:"notes,omitempty"`
-	ParentFolderID string `json:"parentFolderId,omitempty"`
-	Path           string `json:"path"`
-	Fingerprint    string `json:"fingerprint"`
+	Parameter        any    `json:"parameter,omitempty"`
+	Notes            string `json:"notes,omitempty"`
+	ParentFolderID   string `json:"parentFolderId,omitempty"`
+	Path             string `json:"path"`
+	Fingerprint      string `json:"fingerprint"`
 }
 
-// TransformationInput represents input for creating/updating a transformation.
 type TransformationInput struct {
 	Name      string      `json:"name"`
 	Type      string      `json:"type"`
@@ -202,7 +179,6 @@ type TransformationInput struct {
 	Notes     string      `json:"notes,omitempty"`
 }
 
-// CreatedTransformation represents the result of creating a transformation.
 type CreatedTransformation struct {
 	TransformationID string `json:"transformationId"`
 	Name             string `json:"name"`
@@ -211,7 +187,6 @@ type CreatedTransformation struct {
 	Fingerprint      string `json:"fingerprint"`
 }
 
-// EnvironmentInput represents input for creating/updating an environment.
 type EnvironmentInput struct {
 	Name               string `json:"name"`
 	Description        string `json:"description,omitempty"`
@@ -219,7 +194,6 @@ type EnvironmentInput struct {
 	EnableDebug        bool   `json:"enableDebug,omitempty"`
 }
 
-// UserPermission represents a GTM user permission entry.
 type UserPermission struct {
 	PermissionID    string            `json:"permissionId"`
 	EmailAddress    string            `json:"emailAddress"`
@@ -229,18 +203,15 @@ type UserPermission struct {
 	Path            string            `json:"path"`
 }
 
-// AccountAccess represents the account-level permission.
 type AccountAccess struct {
 	Permission string `json:"permission"` // noAccess, read, edit, publish, admin
 }
 
-// ContainerAccess represents container-level permission for a user.
 type ContainerAccess struct {
 	ContainerID string `json:"containerId"`
 	Permission  string `json:"permission"` // noAccess, read, edit, publish, approve
 }
 
-// UserPermissionInput represents input for creating/updating a user permission.
 type UserPermissionInput struct {
 	EmailAddress    string            `json:"emailAddress"`
 	AccountAccess   *AccountAccess    `json:"accountAccess,omitempty"`

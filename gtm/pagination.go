@@ -2,18 +2,12 @@ package gtm
 
 import "reflect"
 
-// =============================================================================
-// Pagination & Compact Mode
-// =============================================================================
-
-// ListParams holds optional pagination and compact parameters for list actions.
 type ListParams struct {
 	Limit   int  // 0 = no limit (return all)
 	Offset  int  // 0-based offset
 	Compact bool // true = return only essential fields
 }
 
-// PaginationMeta contains metadata for paginated responses.
 type PaginationMeta struct {
 	Total   int  `json:"total"`
 	Limit   int  `json:"limit,omitempty"`
@@ -21,9 +15,6 @@ type PaginationMeta struct {
 	HasMore bool `json:"hasMore"`
 }
 
-// extractListParams reads limit, offset, compact from the args map and removes
-// them so they don't interfere with resource-specific arg parsing.
-// Default: compact=true, limit=0 (all), offset=0.
 func extractListParams(args map[string]interface{}) ListParams {
 	params := ListParams{Compact: true} // compact by default
 
@@ -43,7 +34,6 @@ func extractListParams(args map[string]interface{}) ListParams {
 	return params
 }
 
-// toInt converts interface{} (float64 from JSON) to int.
 func toInt(v interface{}) int {
 	switch n := v.(type) {
 	case float64:
@@ -57,7 +47,6 @@ func toInt(v interface{}) int {
 	}
 }
 
-// toBool converts interface{} to bool.
 func toBool(v interface{}) bool {
 	switch b := v.(type) {
 	case bool:
@@ -66,10 +55,6 @@ func toBool(v interface{}) bool {
 		return true // default to compact
 	}
 }
-
-// =============================================================================
-// Compact types — only essential fields for list responses
-// =============================================================================
 
 type CompactTag struct {
 	TagID  string `json:"tagId"`
@@ -113,10 +98,6 @@ type CompactTemplate struct {
 	Name       string `json:"name"`
 	Type       string `json:"type"`
 }
-
-// =============================================================================
-// Compact converters
-// =============================================================================
 
 func tagsToCompact(tags []Tag) []CompactTag {
 	out := make([]CompactTag, len(tags))
@@ -174,18 +155,11 @@ func templatesToCompact(templates []TemplateInfo) []CompactTemplate {
 	return out
 }
 
-// =============================================================================
-// Paginated output wrappers
-// =============================================================================
-
-// PaginatedOutput wraps any list output with pagination metadata.
 type PaginatedOutput struct {
 	Items      interface{}     `json:"items"`
 	Pagination *PaginationMeta `json:"pagination,omitempty"`
 }
 
-// applyListOptimizations applies compact mode and pagination to list outputs.
-// It detects known output types and transforms them accordingly.
 func applyListOptimizations(output any, params ListParams) any {
 	if output == nil {
 		return output
@@ -207,17 +181,13 @@ func applyListOptimizations(output any, params ListParams) any {
 	case ListTemplatesOutput:
 		return applyToSlice(out.Templates, params, templatesToCompact, "templates")
 	default:
-		// For types without compact support (accounts, workspaces, environments, etc.),
-		// still apply pagination if requested.
 		return applyPaginationToUnknown(output, params)
 	}
 }
 
-// applyToSlice applies compact conversion and pagination to a typed slice.
 func applyToSlice[T any, C any](items []T, params ListParams, compactFn func([]T) []C, key string) map[string]any {
 	total := len(items)
 
-	// Apply pagination to full items first
 	paginated, meta := paginate(items, params)
 
 	if params.Compact {
@@ -237,23 +207,19 @@ func applyToSlice[T any, C any](items []T, params ListParams, compactFn func([]T
 	return result
 }
 
-// paginate applies limit/offset to a slice and returns the paginated slice + metadata.
 func paginate[T any](items []T, params ListParams) ([]T, *PaginationMeta) {
 	total := len(items)
 
-	// No pagination requested
 	if params.Limit <= 0 && params.Offset <= 0 {
 		return items, nil
 	}
 
-	// Apply offset
 	offset := params.Offset
 	if offset > total {
 		offset = total
 	}
 	items = items[offset:]
 
-	// Apply limit
 	limit := params.Limit
 	if limit <= 0 {
 		limit = len(items) // no limit but with offset
@@ -273,8 +239,6 @@ func paginate[T any](items []T, params ListParams) ([]T, *PaginationMeta) {
 	return items, meta
 }
 
-// applyPaginationToUnknown applies pagination to unknown output types using reflection.
-// It looks for the first slice field in the struct and paginates it.
 func applyPaginationToUnknown(output any, params ListParams) any {
 	if params.Limit <= 0 && params.Offset <= 0 {
 		return output // nothing to do
@@ -288,7 +252,6 @@ func applyPaginationToUnknown(output any, params ListParams) any {
 		return output
 	}
 
-	// Find the first slice field
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 		if field.Kind() == reflect.Slice {
@@ -307,12 +270,10 @@ func applyPaginationToUnknown(output any, params ListParams) any {
 			}
 			sliced := field.Slice(offset, end)
 
-			// Build result map
 			fieldName := v.Type().Field(i).Tag.Get("json")
 			if fieldName == "" {
 				fieldName = v.Type().Field(i).Name
 			}
-			// Strip omitempty
 			if idx := len(fieldName) - 1; idx > 0 {
 				for j := 0; j < len(fieldName); j++ {
 					if fieldName[j] == ',' {

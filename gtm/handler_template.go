@@ -9,26 +9,20 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// TemplateToolInput is the unified input for the template tool.
 type TemplateToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,update,delete,import,revert,description:Operation to perform on custom templates"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	WorkspaceID string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
-	// Fields for get/update/delete:
-	TemplateID string `json:"templateId,omitempty" jsonschema:"description:Template ID (required for get, update, delete)"`
-	// Fields for create/update:
+	Action       string `json:"action" jsonschema:"enum:list,get,create,update,delete,import,revert,description:Operation to perform on custom templates"`
+	AccountID    string `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID  string `json:"containerId" jsonschema:"description:The GTM container ID"`
+	WorkspaceID  string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
+	TemplateID   string `json:"templateId,omitempty" jsonschema:"description:Template ID (required for get, update, delete)"`
 	Name         string `json:"name,omitempty" jsonschema:"description:Template name (required for create)"`
 	TemplateData string `json:"templateData,omitempty" jsonschema:"description:Template code in .tpl format (required for create, optional for update)"`
-	// Fields for import:
 	GalleryOwner string `json:"galleryOwner,omitempty" jsonschema:"description:Gallery template owner (required for import, e.g. 'GoogleAnalytics')"`
 	GalleryRepo  string `json:"galleryRepository,omitempty" jsonschema:"description:Gallery template repository (required for import, e.g. 'gtm-cookie-solution')"`
 	GallerySha   string `json:"gallerySha,omitempty" jsonschema:"description:Gallery template SHA version (optional for import)"`
-	// Fields for delete:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
-	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
+	Confirm      bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Fingerprint  string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
 }
-
 
 func handleTemplateList(ctx context.Context, input TemplateToolInput) (*mcp.CallToolResult, any, error) {
 	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)
@@ -184,7 +178,6 @@ func handleTemplateUpdate(ctx context.Context, input TemplateToolInput) (*mcp.Ca
 
 	path := fmt.Sprintf("%s/templates/%s", wc.WorkspacePath(), input.TemplateID)
 
-	// Get current template for fingerprint and defaults
 	current, err := wc.Client.Service.Accounts.Containers.Workspaces.Templates.Get(path).Context(tCtx).Do()
 	if err != nil {
 		return nil, nil, mapGoogleError(err)

@@ -132,8 +132,6 @@ func TestMapGoogleError_UnknownStatusCode(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	// Unknown status codes are wrapped with a descriptive message (not with %w),
-	// so we check the message content rather than errors.Is.
 	if !contains(err.Error(), "API error 500") {
 		t.Errorf("expected error to contain 'API error 500', got %q", err.Error())
 	}
@@ -210,7 +208,6 @@ func TestMapGoogleError_AllStatusCodes(t *testing.T) {
 				t.Errorf("expected error type %v, got %v", tt.expectedError, err)
 			}
 
-			// Verify message is included
 			if !contains(err.Error(), tt.message) {
 				t.Errorf("expected error message to contain %q, got %q", tt.message, err.Error())
 			}
@@ -262,7 +259,6 @@ func TestRetryWithBackoff_NonRetryableError(t *testing.T) {
 		t.Errorf("expected empty result, got %q", result)
 	}
 
-	// Should not retry for non-rate-limit errors
 	if callCount != 1 {
 		t.Errorf("expected 1 call (no retries), got %d", callCount)
 	}
@@ -281,7 +277,6 @@ func TestRetryWithBackoff_RateLimitError403(t *testing.T) {
 		Message: "Rate limit exceeded",
 	}
 
-	// Fail twice with rate limit, then succeed
 	result, err := retryWithBackoff(ctx, 3, func() (string, error) {
 		callCount++
 		if callCount <= 2 {
@@ -298,7 +293,6 @@ func TestRetryWithBackoff_RateLimitError403(t *testing.T) {
 		t.Errorf("expected result 'success after retry', got %q", result)
 	}
 
-	// Should have retried twice and succeeded on third attempt
 	if callCount != 3 {
 		t.Errorf("expected 3 calls, got %d", callCount)
 	}
@@ -313,7 +307,6 @@ func TestRetryWithBackoff_RateLimitError429(t *testing.T) {
 		Message: "Too many requests",
 	}
 
-	// Fail once with rate limit, then succeed
 	result, err := retryWithBackoff(ctx, 3, func() (string, error) {
 		callCount++
 		if callCount == 1 {
@@ -344,7 +337,6 @@ func TestRetryWithBackoff_MaxRetriesExceeded(t *testing.T) {
 		Message: "Rate limit exceeded",
 	}
 
-	// Always fail with rate limit error
 	result, err := retryWithBackoff(ctx, 2, func() (string, error) {
 		callCount++
 		return "", rateLimitErr
@@ -358,12 +350,10 @@ func TestRetryWithBackoff_MaxRetriesExceeded(t *testing.T) {
 		t.Errorf("expected empty result, got %q", result)
 	}
 
-	// Should try initial + 2 retries = 3 total
 	if callCount != 3 {
 		t.Errorf("expected 3 calls, got %d", callCount)
 	}
 
-	// On the final attempt, the rate limit error is returned directly
 	if !contains(err.Error(), "Rate limit exceeded") {
 		t.Errorf("expected error to contain rate limit message, got %q", err.Error())
 	}
@@ -378,7 +368,6 @@ func TestRetryWithBackoff_ContextCancellation(t *testing.T) {
 		Message: "Rate limit exceeded",
 	}
 
-	// Cancel context after first call
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		cancel()
@@ -387,10 +376,8 @@ func TestRetryWithBackoff_ContextCancellation(t *testing.T) {
 	result, err := retryWithBackoff(ctx, 5, func() (string, error) {
 		callCount++
 		if callCount == 1 {
-			// First call fails, which should trigger a retry attempt
 			return "", rateLimitErr
 		}
-		// Subsequent calls should not happen due to context cancellation
 		time.Sleep(200 * time.Millisecond)
 		return "", rateLimitErr
 	})
@@ -403,12 +390,10 @@ func TestRetryWithBackoff_ContextCancellation(t *testing.T) {
 		t.Errorf("expected empty result, got %q", result)
 	}
 
-	// Should have context.Canceled error
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled error, got %v", err)
 	}
 
-	// Should not have completed all retries
 	if callCount > 2 {
 		t.Errorf("expected at most 2 calls before cancellation, got %d", callCount)
 	}
@@ -451,7 +436,6 @@ func TestRetryWithBackoff_ExponentialBackoff(t *testing.T) {
 		Message: "Rate limit exceeded",
 	}
 
-	// Always fail to test backoff timing
 	_, _ = retryWithBackoff(ctx, 3, func() (string, error) {
 		callTimes = append(callTimes, time.Now())
 		return "", rateLimitErr
@@ -461,25 +445,21 @@ func TestRetryWithBackoff_ExponentialBackoff(t *testing.T) {
 		t.Fatalf("expected 4 calls, got %d", len(callTimes))
 	}
 
-	// Check exponential backoff (base: 1s, 2s, 4s) with up to 25% jitter.
-	// Tolerance accounts for jitter + scheduling variance.
 	checkBackoff := func(label string, actual, base time.Duration) {
 		t.Helper()
-		minWait := base - 200*time.Millisecond       // scheduling tolerance
+		minWait := base - 200*time.Millisecond          // scheduling tolerance
 		maxWait := base + base/4 + 200*time.Millisecond // base + 25% jitter + tolerance
 		if actual < minWait || actual > maxWait {
 			t.Errorf("%s: expected backoff in [%v, %v], got %v", label, minWait, maxWait, actual)
 		}
 	}
 
-	checkBackoff("first",  callTimes[1].Sub(callTimes[0]), 1*time.Second)
+	checkBackoff("first", callTimes[1].Sub(callTimes[0]), 1*time.Second)
 	checkBackoff("second", callTimes[2].Sub(callTimes[1]), 2*time.Second)
-	checkBackoff("third",  callTimes[3].Sub(callTimes[2]), 4*time.Second)
+	checkBackoff("third", callTimes[3].Sub(callTimes[2]), 4*time.Second)
 }
 
 func TestRetryWithBackoff_MaxBackoffCap(t *testing.T) {
-	// Verify the backoff cap logic: 2^attempt should be capped at 32 seconds.
-	// Instead of waiting 63+ seconds, we verify the calculation directly.
 	for attempt := uint(0); attempt <= 10; attempt++ {
 		waitTime := time.Duration(1<<attempt) * time.Second
 		if waitTime > 32*time.Second {
@@ -492,7 +472,6 @@ func TestRetryWithBackoff_MaxBackoffCap(t *testing.T) {
 }
 
 func TestRetryWithBackoff_IntegerResult(t *testing.T) {
-	// Test with integer return type
 	ctx := context.Background()
 	callCount := 0
 
@@ -514,7 +493,6 @@ func TestRetryWithBackoff_IntegerResult(t *testing.T) {
 }
 
 func TestRetryWithBackoff_StructResult(t *testing.T) {
-	// Test with struct return type
 	type Result struct {
 		Value string
 	}
@@ -564,20 +542,15 @@ func TestRetryWithBackoff_ContextCancelledDuringWait(t *testing.T) {
 		t.Errorf("expected context.DeadlineExceeded error, got %v", err)
 	}
 
-	// Should have been cancelled before completing all retries
-	// First call happens immediately, second after 1s, but timeout is 500ms
-	// so we should only get 1-2 calls
 	if callCount > 2 {
 		t.Errorf("expected at most 2 calls before timeout, got %d", callCount)
 	}
 
-	// Should have stopped around 500ms, not run all retries
 	if duration > 2*time.Second {
 		t.Errorf("expected early termination around 500ms, took %v", duration)
 	}
 }
 
-// Helper function
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))

@@ -9,16 +9,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// =============================================================================
-// AUDIT PROMPTS — "¿Mi container está bien?"
-// Handlers: audit_container, audit_consent_privacy, audit_server_side,
-//           audit_custom_templates, validate_variable_references,
-//           detect_duplicate_tags, optimize_built_in_variables,
-//           audit_sgtm_data_flow, audit_sgtm_pii_exposure,
-//           audit_sgtm_client_priority
-// =============================================================================
-
-// handleAuditContainerPrompt analyzes a workspace for issues, naming, duplicates, and best practices.
 func handleAuditContainerPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -109,7 +99,6 @@ Please provide specific recommendations for improvements.`, string(dataJSON)),
 	}, nil
 }
 
-// handleAuditConsentPrivacyPrompt audits for GDPR/ePrivacy compliance.
 func handleAuditConsentPrivacyPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -212,7 +201,6 @@ Please analyze for privacy compliance:
 	}, nil
 }
 
-// handleAuditServerSidePrompt audits server-side GTM container configuration.
 func handleAuditServerSidePrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -312,7 +300,6 @@ Please analyze:
 	}, nil
 }
 
-// handleAuditCustomTemplatesPrompt audits custom templates for security and quality.
 func handleAuditCustomTemplatesPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -418,7 +405,6 @@ Please analyze:
 	}, nil
 }
 
-// handleValidateVariableReferencesPrompt checks for broken refs, orphans, and circular deps.
 func handleValidateVariableReferencesPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -511,7 +497,6 @@ Analyze the following:
 	}, nil
 }
 
-// handleDetectDuplicateTagsPrompt finds redundant or duplicate tags.
 func handleDetectDuplicateTagsPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -593,7 +578,6 @@ Analyze for duplicates:
 	}, nil
 }
 
-// handleOptimizeBuiltInVariablesPrompt reviews built-in variable usage.
 func handleOptimizeBuiltInVariablesPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -679,7 +663,6 @@ Please analyze:
 	}, nil
 }
 
-// handleAuditSGTMDataFlowPrompt traces the sGTM data pipeline: client → transformation → tag.
 func handleAuditSGTMDataFlowPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -795,7 +778,6 @@ Analyze the full data pipeline from incoming requests to outbound API calls:
 	}, nil
 }
 
-// handleAuditSGTMPIIExposurePrompt checks for PII leaking through sGTM to third parties.
 func handleAuditSGTMPIIExposurePrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -902,7 +884,6 @@ Analyze for PII exposure risks:
 	}, nil
 }
 
-// handleAuditSGTMClientPriorityPrompt checks for client claim priority conflicts.
 func handleAuditSGTMClientPriorityPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -994,4 +975,3 @@ Analyze:
 		},
 	}, nil
 }
-

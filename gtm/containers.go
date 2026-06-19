@@ -7,7 +7,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// Container is a simplified representation of a GTM container.
 type Container struct {
 	ContainerID  string   `json:"containerId"`
 	Name         string   `json:"name"`
@@ -16,7 +15,6 @@ type Container struct {
 	Path         string   `json:"path"`
 }
 
-// ListContainers returns all containers in an account.
 func (c *Client) ListContainers(ctx context.Context, accountID string) ([]Container, error) {
 	parent := fmt.Sprintf("accounts/%s", accountID)
 
@@ -44,7 +42,6 @@ func toContainers(containers []*tagmanager.Container) []Container {
 	return result
 }
 
-// DeleteContainer deletes a container by path.
 func (c *Client) DeleteContainer(ctx context.Context, path string) error {
 	return c.Service.Accounts.Containers.Delete(path).Context(ctx).Do()
 }

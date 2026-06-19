@@ -6,11 +6,8 @@ import (
 	"strings"
 )
 
-// numericIDPattern validates that GTM IDs are numeric-only.
-// Defense-in-depth: reject path traversal or injection before reaching Google API.
 var numericIDPattern = regexp.MustCompile(`^[0-9]+$`)
 
-// ValidateNumericID checks that an ID is a non-empty numeric string.
 func ValidateNumericID(name, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s is required", name)
@@ -21,7 +18,6 @@ func ValidateNumericID(name, value string) error {
 	return nil
 }
 
-// ValidateTagInput validates tag creation/update inputs.
 func ValidateTagInput(name, tagType string, firingTriggerIDs []string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("tag name is required")
@@ -43,7 +39,6 @@ func ValidateTagInput(name, tagType string, firingTriggerIDs []string) error {
 	return nil
 }
 
-// ValidateTriggerInput validates trigger creation inputs.
 func ValidateTriggerInput(name, triggerType string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("trigger name is required")
@@ -57,7 +52,6 @@ func ValidateTriggerInput(name, triggerType string) error {
 	return nil
 }
 
-// ValidateVariableInput validates variable creation inputs.
 func ValidateVariableInput(name, varType string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("variable name is required")
@@ -71,7 +65,6 @@ func ValidateVariableInput(name, varType string) error {
 	return nil
 }
 
-// ValidateWorkspacePath validates workspace path components.
 func ValidateWorkspacePath(accountID, containerID, workspaceID string) error {
 	if err := ValidateNumericID("account ID", accountID); err != nil {
 		return err
@@ -85,13 +78,11 @@ func ValidateWorkspacePath(accountID, containerID, workspaceID string) error {
 	return nil
 }
 
-// BuildWorkspacePath constructs a workspace path from IDs.
 func BuildWorkspacePath(accountID, containerID, workspaceID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s",
 		accountID, containerID, workspaceID)
 }
 
-// ValidateContainerPath validates container path components.
 func ValidateContainerPath(accountID, containerID string) error {
 	if err := ValidateNumericID("account ID", accountID); err != nil {
 		return err
@@ -102,12 +93,10 @@ func ValidateContainerPath(accountID, containerID string) error {
 	return nil
 }
 
-// BuildContainerPath constructs a container path from IDs.
 func BuildContainerPath(accountID, containerID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s", accountID, containerID)
 }
 
-// ValidateClientInput validates client creation/update inputs.
 func ValidateClientInput(name, clientType string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("client name is required")
@@ -121,7 +110,6 @@ func ValidateClientInput(name, clientType string) error {
 	return nil
 }
 
-// ValidateTransformationInput validates transformation creation/update inputs.
 func ValidateTransformationInput(name, transformationType string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("transformation name is required")

@@ -9,17 +9,15 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// WorkspaceToolInput is the unified input for the workspace tool.
 type WorkspaceToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,create,status,description:Operation to perform on workspaces"`
+	Action      string `json:"action" jsonschema:"enum:list,create,status,delete,description:Operation to perform on workspaces"`
 	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
 	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	// Fields for create:
 	WorkspaceID string `json:"workspaceId,omitempty" jsonschema:"description:The GTM workspace ID (required for status)"`
 	Name        string `json:"name,omitempty" jsonschema:"description:Workspace name (required for create)"`
 	Description string `json:"description,omitempty" jsonschema:"description:Workspace description (optional, for create)"`
+	Confirm     bool   `json:"confirm,omitempty" jsonschema:"description:Must be set to true for destructive actions (delete)"`
 }
-
 
 func handleListWorkspaces(ctx context.Context, input WorkspaceToolInput) (*mcp.CallToolResult, any, error) {
 	cc, err := resolveContainer(ctx, input.AccountID, input.ContainerID)
@@ -94,4 +92,37 @@ func handleGetWorkspaceStatus(ctx context.Context, input WorkspaceToolInput) (*m
 	}
 
 	return nil, GetWorkspaceStatusOutput{Status: *status}, nil
+}
+
+func handleDeleteWorkspace(ctx context.Context, input WorkspaceToolInput) (*mcp.CallToolResult, any, error) {
+	if input.WorkspaceID == "" {
+		return nil, nil, fmt.Errorf("workspaceId is required for delete action")
+	}
+
+	if !input.Confirm {
+		return nil, nil, fmt.Errorf("Action requires confirmation. Set confirm=true in the arguments to proceed.")
+	}
+
+	// Safety check against default workspaces (IDs "1" and "2" usually)
+	if input.WorkspaceID == "1" || input.WorkspaceID == "2" {
+		return nil, nil, fmt.Errorf("Cannot delete protected workspace with ID %s. These are usually the default workspaces.", input.WorkspaceID)
+	}
+
+	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	err = wc.Client.DeleteWorkspace(tCtx, wc.AccountID, wc.ContainerID, wc.WorkspaceID)
+	if err != nil {
+		return nil, nil, mapGoogleError(err)
+	}
+
+	return nil, DeleteWorkspaceOutput{
+		Success: true,
+		Message: "Workspace deleted successfully",
+	}, nil
 }

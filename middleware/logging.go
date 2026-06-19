@@ -9,9 +9,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// NewLoggingMiddleware creates MCP-level logging middleware that logs
-// all incoming requests and their results. For tools/call requests,
-// it extracts and logs the tool name for audit purposes.
 func NewLoggingMiddleware(logger *slog.Logger) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
@@ -21,7 +18,6 @@ func NewLoggingMiddleware(logger *slog.Logger) mcp.Middleware {
 				sessionID = session.ID()
 			}
 
-			// Extract tool name for tools/call requests
 			toolName := ""
 			if method == "tools/call" {
 				toolName = extractToolName(req)
@@ -43,7 +39,6 @@ func NewLoggingMiddleware(logger *slog.Logger) mcp.Middleware {
 			attrs = append(attrs, "duration_ms", duration.Milliseconds())
 
 			if err != nil {
-				// Context cancellation is not an error - don't log when client disconnects
 				if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 					logger.Error("mcp request failed",
 						append(attrs, "error", err.Error())...,
@@ -58,7 +53,6 @@ func NewLoggingMiddleware(logger *slog.Logger) mcp.Middleware {
 	}
 }
 
-// extractToolName attempts to extract the tool name from a tools/call request.
 func extractToolName(req mcp.Request) string {
 	if ctr, ok := req.(*mcp.CallToolRequest); ok {
 		return ctr.Params.Name

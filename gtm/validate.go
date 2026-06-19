@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// BrokenReference represents a broken variable reference found in the workspace.
 type BrokenReference struct {
 	EntityType string `json:"entityType"` // "variable", "tag", "trigger"
 	EntityName string `json:"entityName"`
@@ -15,52 +14,35 @@ type BrokenReference struct {
 	Reference  string `json:"reference"` // The broken {{Variable Name}} reference
 }
 
-// ValidationResult contains the results of a pre-publish validation.
 type ValidationResult struct {
 	Valid            bool              `json:"valid"`
 	BrokenReferences []BrokenReference `json:"brokenReferences,omitempty"`
 	Summary          string            `json:"summary"`
 }
 
-// variableRefPattern matches GTM variable references like {{Variable Name}}
 var variableRefPattern = regexp.MustCompile(`\{\{([^{}]+)\}\}`)
 
-// builtInVariableNames contains GTM built-in variables that don't need to exist as custom variables.
-// Updated with 2024-2025 additions (Client ID, Session ID, Session Number).
-// [vs. NLM:datalayer-gtm]
 var builtInVariableNames = map[string]bool{
-	// Page
 	"Page URL": true, "Page Hostname": true, "Page Path": true,
 	"Referrer": true,
-	// Utilities
-	"Event": true, "Container ID": true, "Container Version": true,
+	"Event":    true, "Container ID": true, "Container Version": true,
 	"Random Number": true, "HTML ID": true, "Debug Mode": true,
 	"Environment Name": true,
-	// 2024-2025 new built-ins
-	"Client ID": true, "Session ID": true, "Session Number": true,
-	// Internal pseudo-variables (used by customEvent triggers, never user-declared)
-	"_event": true,
-	// Clicks
+	"Client ID":        true, "Session ID": true, "Session Number": true,
+	"_event":        true,
 	"Click Element": true, "Click Classes": true, "Click ID": true,
 	"Click Target": true, "Click URL": true, "Click Text": true,
-	// Forms
 	"Form Element": true, "Form Classes": true, "Form ID": true,
 	"Form Target": true, "Form URL": true, "Form Text": true,
-	// Errors
 	"Error Message": true, "Error URL": true, "Error Line": true,
-	// History
 	"New History Fragment": true, "Old History Fragment": true,
 	"New History State": true, "Old History State": true, "History Source": true,
-	// Scroll
 	"Scroll Depth Threshold": true, "Scroll Depth Units": true,
-	"Scroll Direction": true,
-	// Visibility
+	"Scroll Direction":   true,
 	"Element Visibility": true, "Percent Visible": true, "On-Screen Duration": true,
-	// Video
 	"Video Provider": true, "Video Status": true, "Video URL": true,
 	"Video Title": true, "Video Duration": true, "Video Current Time": true,
 	"Video Percent": true, "Video Visible": true,
-	// Mobile / App
 	"Advertiser Tracking Enabled": true, "Advertising Tracking Enabled": true,
 	"App ID": true, "App Name": true, "App Version Code": true,
 	"App Version Name": true, "Language": true, "Platform": true,
@@ -68,10 +50,7 @@ var builtInVariableNames = map[string]bool{
 	"OS Version": true, "IDFA": true,
 }
 
-// ValidateVariableReferences checks all workspace entities for broken variable references.
-// This acts as a guardrail before create_version to prevent compiler errors.
 func ValidateVariableReferences(tags []Tag, triggers []Trigger, variables []Variable) *ValidationResult {
-	// Build set of known variable names
 	knownVars := make(map[string]bool)
 	for _, v := range variables {
 		knownVars[v.Name] = true
@@ -79,7 +58,6 @@ func ValidateVariableReferences(tags []Tag, triggers []Trigger, variables []Vari
 
 	var broken []BrokenReference
 
-	// Check variables — scan Parameter field
 	for _, v := range variables {
 		refs := extractRefsFromAny(v.Parameter)
 		for _, ref := range refs {
@@ -94,7 +72,6 @@ func ValidateVariableReferences(tags []Tag, triggers []Trigger, variables []Vari
 		}
 	}
 
-	// Check tags — scan Parameter field
 	for _, t := range tags {
 		refs := extractRefsFromAny(t.Parameter)
 		for _, ref := range refs {
@@ -109,9 +86,6 @@ func ValidateVariableReferences(tags []Tag, triggers []Trigger, variables []Vari
 		}
 	}
 
-	// Check triggers — scan Parameter AND all filter fields
-	// [vs. NLM:datalayer-gtm] Triggers use Filter, AutoEventFilter, CustomEventFilter
-	// in addition to Parameter, all of which can contain {{Variable Name}} refs.
 	for _, tr := range triggers {
 		var allRefs []string
 		allRefs = append(allRefs, extractRefsFromAny(tr.Parameter)...)
@@ -131,7 +105,6 @@ func ValidateVariableReferences(tags []Tag, triggers []Trigger, variables []Vari
 		}
 	}
 
-	// Deduplicate
 	broken = deduplicateRefs(broken)
 
 	if len(broken) == 0 {
@@ -141,7 +114,6 @@ func ValidateVariableReferences(tags []Tag, triggers []Trigger, variables []Vari
 		}
 	}
 
-	// Group by entity for readable summary
 	byEntity := make(map[string][]string)
 	for _, b := range broken {
 		key := fmt.Sprintf("%s '%s'", b.EntityType, b.EntityName)
@@ -161,12 +133,10 @@ func ValidateVariableReferences(tags []Tag, triggers []Trigger, variables []Vari
 	}
 }
 
-// isKnownRef checks if a reference is a known custom variable or GTM built-in.
 func isKnownRef(ref string, knownVars map[string]bool) bool {
 	return knownVars[ref] || builtInVariableNames[ref]
 }
 
-// extractRefsFromAny recursively extracts {{Variable Name}} references from any parameter structure.
 func extractRefsFromAny(v any) []string {
 	if v == nil {
 		return nil
@@ -189,7 +159,6 @@ func extractRefsFromAny(v any) []string {
 			refs = append(refs, extractRefsFromAny(child)...)
 		}
 	default:
-		// Fallback: JSON marshal for complex types (e.g., Google API structs)
 		data, err := json.Marshal(val)
 		if err == nil {
 			matches := variableRefPattern.FindAllStringSubmatch(string(data), -1)

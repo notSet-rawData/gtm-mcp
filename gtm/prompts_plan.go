@@ -8,16 +8,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// =============================================================================
-// PLAN PROMPTS — "¿Qué hago / cómo organizo?"
-// Handlers: generate_tracking_plan, suggest_ga4_setup, find_gallery_template,
-//           review_before_publish, folder_organization_review,
-//           migration_plan_ua_to_ga4, environment_promotion_checklist,
-//           plan_sgtm_setup, plan_web_to_sgtm_migration,
-//           plan_sgtm_consent_architecture
-// =============================================================================
-
-// handleGenerateTrackingPlanPrompt creates markdown tracking plan documentation.
 func handleGenerateTrackingPlanPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -125,7 +115,6 @@ Format the output as clean, professional Markdown.`, string(dataJSON)),
 	}, nil
 }
 
-// handleSuggestGA4SetupPrompt recommends a GA4 tag structure based on goals.
 func handleSuggestGA4SetupPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	goals := req.Params.Arguments["goals"]
 
@@ -198,7 +187,6 @@ Please be specific about the GTM configuration - use the exact parameter formats
 	}, nil
 }
 
-// handleFindGalleryTemplatePrompt guides LLM to discover Community Template Gallery templates.
 func handleFindGalleryTemplatePrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	templateName := req.Params.Arguments["templateName"]
 
@@ -253,7 +241,6 @@ Please search for the "%s" template and provide the galleryOwner and galleryRepo
 	}, nil
 }
 
-// handleReviewBeforePublishPrompt generates a pre-publish review checklist with risk assessment.
 func handleReviewBeforePublishPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -348,7 +335,6 @@ Please provide a pre-publish review covering:
 	}, nil
 }
 
-// handleFolderOrganizationReviewPrompt analyzes folder structure and suggests improvements.
 func handleFolderOrganizationReviewPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -456,7 +442,6 @@ Please analyze:
 	}, nil
 }
 
-// handleMigrationPlanUA2GA4Prompt generates a UA to GA4 migration plan.
 func handleMigrationPlanUA2GA4Prompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -554,7 +539,6 @@ Please generate:
 	}, nil
 }
 
-// handleEnvironmentPromotionChecklistPrompt generates a promotion checklist for environment transitions.
 func handleEnvironmentPromotionChecklistPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -679,7 +663,6 @@ Please analyze and generate:
 	}, nil
 }
 
-// handlePlanSGTMSetupPrompt generates a complete sGTM setup plan from scratch.
 func handlePlanSGTMSetupPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	goals := req.Params.Arguments["goals"]
 	containerType := req.Params.Arguments["containerType"]
@@ -782,7 +765,6 @@ Create a step-by-step setup plan covering:
 	}, nil
 }
 
-// handlePlanWebToSGTMMigrationPrompt analyzes web container for server-side migration.
 func handlePlanWebToSGTMMigrationPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -812,7 +794,6 @@ func handlePlanWebToSGTMMigrationPrompt(ctx context.Context, req *mcp.GetPromptR
 		return nil, fmt.Errorf("failed to list variables: %w", err)
 	}
 
-	// Include sGTM templates as migration targets
 	sgtmTagTemplates := GetServerSideTagTemplates()
 	clientTemplates := GetClientTemplates()
 
@@ -902,7 +883,6 @@ Analyze each web tag and classify for migration:
 	}, nil
 }
 
-// handlePlanSGTMConsentArchitecturePrompt designs consent mode for server-side GTM.
 func handlePlanSGTMConsentArchitecturePrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -983,7 +963,7 @@ Design the consent architecture:
    - Are there any tags firing without consent checks?
 
 2. **Consent Signal Flow**
-   ` + "```" + `
+   `+"```"+`
    [Browser] → Consent granted/denied
      ↓
    [Web Container] → gtag consent update → sets gcs/gcd parameters
@@ -997,7 +977,7 @@ Design the consent architecture:
    [Transformation] → Strip PII if consent denied
      ↓
    [Tag] → Send only consented data
-   ` + "```" + `
+   `+"```"+`
 
 3. **Consent Variables to Create**
    | Variable Name | Type | Event Data Key | Purpose |
@@ -1039,4 +1019,3 @@ Design the consent architecture:
 		},
 	}, nil
 }
-

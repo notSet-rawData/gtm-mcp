@@ -7,7 +7,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// ListBuiltInVariables returns all enabled built-in variables in a workspace.
 func (c *Client) ListBuiltInVariables(ctx context.Context, accountID, containerID, workspaceID string) ([]BuiltInVariable, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s", accountID, containerID, workspaceID)
 
@@ -24,7 +23,6 @@ func (c *Client) ListBuiltInVariables(ctx context.Context, accountID, containerI
 	return toBuiltInVariables(resp.BuiltInVariable), nil
 }
 
-// EnableBuiltInVariables enables one or more built-in variable types in a workspace.
 func (c *Client) EnableBuiltInVariables(ctx context.Context, accountID, containerID, workspaceID string, types []string) ([]BuiltInVariable, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s", accountID, containerID, workspaceID)
 
@@ -38,7 +36,6 @@ func (c *Client) EnableBuiltInVariables(ctx context.Context, accountID, containe
 	return toBuiltInVariables(resp.BuiltInVariable), nil
 }
 
-// DisableBuiltInVariables disables one or more built-in variable types in a workspace.
 func (c *Client) DisableBuiltInVariables(ctx context.Context, accountID, containerID, workspaceID string, types []string) error {
 	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/built_in_variables", accountID, containerID, workspaceID)
 

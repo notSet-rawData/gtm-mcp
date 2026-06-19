@@ -8,7 +8,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// BuiltInVariableToolInput is the unified input for the built_in_variable tool.
 type BuiltInVariableToolInput struct {
 	Action      string   `json:"action" jsonschema:"enum:list,enable,disable,revert,description:Operation to perform on built-in variables"`
 	AccountID   string   `json:"accountId" jsonschema:"description:The GTM account ID"`
@@ -17,7 +16,6 @@ type BuiltInVariableToolInput struct {
 	Types       []string `json:"types,omitempty" jsonschema:"description:Built-in variable types to enable/disable (e.g. eventName, clientName, requestPath, pageUrl, event)"`
 	Confirm     bool     `json:"confirm,omitempty" jsonschema:"description:Must be true for disable (safety guard)"`
 }
-
 
 func handleBuiltInVariableList(ctx context.Context, input BuiltInVariableToolInput) (*mcp.CallToolResult, any, error) {
 	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)

@@ -9,32 +9,27 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// TriggerToolInput is the unified input for the trigger tool.
 type TriggerToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,update,delete,revert,description:Operation to perform on triggers"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	WorkspaceID string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
-	// Fields for get/update/delete:
-	TriggerID string `json:"triggerId,omitempty" jsonschema:"description:Trigger ID (required for get, update, delete)"`
-	// Fields for create/update:
-	Name                  string `json:"name,omitempty" jsonschema:"description:Trigger name (required for create/update)"`
-	Type                  string `json:"type,omitempty" jsonschema:"description:Trigger type e.g. pageview, customEvent, linkClick, formSubmission, timer (required for create/update)"`
-	FilterJSON            string `json:"filterJson,omitempty" jsonschema:"description:Filter conditions as JSON array for pageview triggers"`
-	AutoEventFilterJSON   string `json:"autoEventFilterJson,omitempty" jsonschema:"description:Auto-event filter as JSON array for click/form triggers"`
-	CustomEventFilterJSON string `json:"customEventFilterJson,omitempty" jsonschema:"description:Custom event filter as JSON array (REQUIRED for customEvent type)"`
-	EventNameJSON         string `json:"eventNameJson,omitempty" jsonschema:"description:Event name as JSON object {type, value} for timer triggers"`
-	ParameterJSON         string `json:"parameterJson,omitempty" jsonschema:"description:Trigger parameters as JSON array. For triggerGroup: [{key: triggerIds, type: list, list: [{type: triggerReference, value: triggerId}]}]"`
-	Notes                 string `json:"notes,omitempty" jsonschema:"description:Trigger notes (optional)"`
-	WaitForTagsJSON       string `json:"waitForTagsJson,omitempty" jsonschema:"description:Whether to wait for tags as JSON Parameter {type: boolean, value: true/false}. For link click/form submit triggers."`
-	CheckValidationJSON   string `json:"checkValidationJson,omitempty" jsonschema:"description:Whether to check validation as JSON Parameter {type: boolean, value: true/false}. For link click/form submit triggers."`
+	Action                 string `json:"action" jsonschema:"enum:list,get,create,update,delete,revert,description:Operation to perform on triggers"`
+	AccountID              string `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID            string `json:"containerId" jsonschema:"description:The GTM container ID"`
+	WorkspaceID            string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
+	TriggerID              string `json:"triggerId,omitempty" jsonschema:"description:Trigger ID (required for get, update, delete)"`
+	Name                   string `json:"name,omitempty" jsonschema:"description:Trigger name (required for create/update)"`
+	Type                   string `json:"type,omitempty" jsonschema:"description:Trigger type e.g. pageview, customEvent, linkClick, formSubmission, timer (required for create/update)"`
+	FilterJSON             string `json:"filterJson,omitempty" jsonschema:"description:Filter conditions as JSON array for pageview triggers"`
+	AutoEventFilterJSON    string `json:"autoEventFilterJson,omitempty" jsonschema:"description:Auto-event filter as JSON array for click/form triggers"`
+	CustomEventFilterJSON  string `json:"customEventFilterJson,omitempty" jsonschema:"description:Custom event filter as JSON array (REQUIRED for customEvent type)"`
+	EventNameJSON          string `json:"eventNameJson,omitempty" jsonschema:"description:Event name as JSON object {type, value} for timer triggers"`
+	ParameterJSON          string `json:"parameterJson,omitempty" jsonschema:"description:Trigger parameters as JSON array. For triggerGroup: [{key: triggerIds, type: list, list: [{type: triggerReference, value: triggerId}]}]"`
+	Notes                  string `json:"notes,omitempty" jsonschema:"description:Trigger notes (optional)"`
+	WaitForTagsJSON        string `json:"waitForTagsJson,omitempty" jsonschema:"description:Whether to wait for tags as JSON Parameter {type: boolean, value: true/false}. For link click/form submit triggers."`
+	CheckValidationJSON    string `json:"checkValidationJson,omitempty" jsonschema:"description:Whether to check validation as JSON Parameter {type: boolean, value: true/false}. For link click/form submit triggers."`
 	WaitForTagsTimeoutJSON string `json:"waitForTagsTimeoutJson,omitempty" jsonschema:"description:Max wait time in ms as JSON Parameter {type: integer, value: 2000}. For link click/form submit triggers."`
-	ParentFolderID        string `json:"parentFolderId,omitempty" jsonschema:"description:Parent folder ID for organizational purposes (optional)"`
-	// Fields for delete:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
-	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
+	ParentFolderID         string `json:"parentFolderId,omitempty" jsonschema:"description:Parent folder ID for organizational purposes (optional)"`
+	Confirm                bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Fingerprint            string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
 }
-
 
 func handleTriggerList(ctx context.Context, input TriggerToolInput) (*mcp.CallToolResult, any, error) {
 	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)

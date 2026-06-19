@@ -1,3 +1,5 @@
+// Package main constitutes the entrypoint for the NotSet GTM MCP Community Edition.
+// Yes, we open-sourced the gateway logic. Try not to break the MCP Protocol while looking at it.
 package main
 
 import (
@@ -16,6 +18,7 @@ import (
 	"time"
 
 	"gtm-mcp-server/auth"
+	"gtm-mcp-server/auth/serviceauth"
 	"gtm-mcp-server/config"
 	"gtm-mcp-server/gtm"
 	"gtm-mcp-server/middleware"
@@ -34,20 +37,17 @@ const (
 )
 
 func main() {
-	// Set up structured logging to stderr (stdout is reserved for MCP in stdio mode)
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(logger)
 
-	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Error("failed to load configuration", "error", err)
 		os.Exit(1)
 	}
 
-	// Adjust log level
 	if cfg.LogLevel == "debug" {
 		logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
@@ -55,11 +55,9 @@ func main() {
 		slog.SetDefault(logger)
 	}
 
-	// Parse flags
 	stdioMode := flag.Bool("stdio", false, "Run in stdio mode (no HTTP server, no auth required)")
 	flag.Parse()
 
-	// Create MCP server
 	logoDataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(mcpLogoPNG)
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    serverName,
@@ -85,10 +83,10 @@ IMPORTANT BEHAVIORS:
 Resources & actions:
   account → list
   container → list, create, delete
-  workspace → list, create, status
-  tag → list, get, create, update, delete, revert
+  workspace → list, create, status, delete
+  tag → list, get, create, update, delete, revert, append_list_entry, remove_list_entry, list_entries
   trigger → list, get, create, update, delete, revert
-  variable → list, get, create, update, delete, revert
+  variable → list, get, create, update, delete, revert, add_lookup_entry, remove_lookup_entry, list_lookup_entries, append_list_entry, remove_list_entry, list_entries
   folder → list, get, create, update, delete, move, audit, revert
   template → list, get, create, update, delete, import, revert
   built_in_variable → list, enable, disable, revert
@@ -105,13 +103,10 @@ Resources & actions:
   auth_status → (no action needed)`,
 	})
 
-	// Add middleware (order matters: compat first, then logging, then audit, then transport mode)
 	server.AddReceivingMiddleware(middleware.NewToolCompatMiddleware(logger))
 	server.AddReceivingMiddleware(middleware.NewLoggingMiddleware(logger))
 	server.AddReceivingMiddleware(middleware.NewAuditMiddleware(logger))
 
-	// Transport mode middleware: injects the correct TransportMode into the context.
-	// Uses the stdioMode flag (captured by closure) to determine the mode.
 	isStdio := *stdioMode
 	server.AddReceivingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
@@ -124,10 +119,8 @@ Resources & actions:
 		}
 	})
 
-	// Register tools
 	registerTools(server)
 
-	// Stdio mode: direct MCP over stdin/stdout, no auth
 	if *stdioMode {
 		logger.Info("starting in stdio mode (no auth)")
 		if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
@@ -137,15 +130,12 @@ Resources & actions:
 		return
 	}
 
-	// Create HTTP handler for MCP
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
 	}, nil)
 
-	// Set up HTTP routes
 	mux := http.NewServeMux()
 
-	// Health check endpoint (no auth required)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -156,7 +146,6 @@ Resources & actions:
 		})
 	})
 
-	// Readiness check — verifies backend dependencies
 	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -165,7 +154,6 @@ Resources & actions:
 			"version": serverVersion,
 		}
 
-		// Quick SQLite check: try to open and ping the database
 		db, err := sql.Open("sqlite", "data/gtm-tokens.db")
 		if err != nil {
 			status["status"] = "degraded"
@@ -188,34 +176,26 @@ Resources & actions:
 		json.NewEncoder(w).Encode(status)
 	})
 
-	// URL resolver for dynamic base URL resolution in Docker-to-Docker contexts.
-	// Only resolves dynamically for hosts in the allowlist; falls back to cfg.BaseURL.
 	var urlResolver *auth.URLResolver
 	if len(cfg.AllowedHosts) > 0 {
 		urlResolver = auth.NewURLResolver(cfg.BaseURL, cfg.AllowedHosts)
 		logger.Info("dynamic URL resolution enabled", "allowed_hosts", cfg.AllowedHosts)
 	}
 
-	// OAuth metadata endpoints (always served, no auth required)
-	// RFC 9728: Protected Resource Metadata - tells clients where to find the authorization server
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource",
 		auth.ProtectedResourceMetadataHandler(cfg.BaseURL, cfg.BaseURL, urlResolver))
 
-	// RFC 8414: Authorization Server Metadata - tells clients about OAuth endpoints
-	mux.HandleFunc("GET /.well-known/oauth-authorization-server", auth.MetadataHandler(cfg.BaseURL, urlResolver))
+	mux.HandleFunc("GET /.well-known/oauth-authorization-server", auth.MetadataHandler(cfg.BaseURL, urlResolver, cfg.IsServiceAccountEnabled()))
 
-	// Check if OAuth is configured
 	var authServer *auth.Server
 	var tokenStore auth.TokenStore
 	oauthConfigured := cfg.ValidateAuth() == nil
 
-	// Rate limiters for public endpoints
 	oauthLimiter := middleware.NewRateLimiter(10, 20)  // 10 req/s, burst 20
 	registerLimiter := middleware.NewRateLimiter(2, 5) // 2 req/s, burst 5
 	mcpLimiter := middleware.NewRateLimiter(30, 50)    // 30 req/s, burst 50
 
 	if oauthConfigured {
-		// Set up OAuth with encrypted token store
 		encryptionKey := auth.DeriveKey(cfg.JWTSecret)
 		var err error
 		tokenStore, err = store.NewSQLiteTokenStore("data/gtm-tokens.db", encryptionKey)
@@ -232,15 +212,52 @@ Resources & actions:
 		)
 		authServer = auth.NewServer(cfg.BaseURL, googleProvider, tokenStore, logger, cfg.AccessTokenTTL, cfg.AllowedDCRDomains...)
 
-		// OAuth endpoints with rate limiting and body size limits
+		var saProvider *serviceauth.Provider
+		var saValidator *serviceauth.Validator
+
+		if cfg.IsServiceAccountEnabled() {
+			var saErr error
+			saProvider, saErr = serviceauth.NewProviderFromEnv(cfg.GoogleScopes, logger)
+			if saErr != nil {
+				logger.Error("service account initialization failed",
+					"error", saErr,
+					"hint", "Check GTM_SA_KEY_JSON or GTM_SA_KEY_FILE environment variable",
+				)
+				os.Exit(1)
+			}
+
+			if saProvider != nil {
+				if valErr := saProvider.Validate(context.Background()); valErr != nil {
+					logger.Error("service account credential validation failed",
+						"error", valErr,
+						"service_account", saProvider.Email(),
+					)
+					os.Exit(1)
+				}
+
+				saValidator = serviceauth.NewValidator(serviceauth.ValidatorConfig{
+					AllowedSAs: cfg.AllowedServiceAccounts,
+					Audience:   cfg.ServiceAccountAudienceOrDefault(),
+				})
+
+				authServer.WithServiceAccount(saProvider, saValidator)
+
+				logger.Info("service account authentication enabled",
+					"service_account", saProvider.Email(),
+					"mode", string(saProvider.Mode()),
+					"subject", saProvider.Subject(),
+					"audience", cfg.ServiceAccountAudienceOrDefault(),
+					"allowed_sa_count", len(cfg.AllowedServiceAccounts),
+				)
+			}
+		}
+
 		mux.HandleFunc("GET /authorize", oauthLimiter.MiddlewareFunc(authServer.AuthorizeHandler))
 		mux.HandleFunc("GET /oauth/callback", oauthLimiter.MiddlewareFunc(authServer.CallbackHandler))
 		mux.HandleFunc("POST /token", oauthLimiter.MiddlewareFunc(middleware.MaxBytesMiddleware(1<<20, authServer.TokenHandler)))
 		mux.HandleFunc("POST /register", registerLimiter.MiddlewareFunc(middleware.MaxBytesMiddleware(1<<20, authServer.RegistrationHandler)))
 
-		// MCP endpoint with REQUIRED auth middleware, rate limiting, and body size limit
-		// Returns 401 if no valid Bearer token - triggers Claude's OAuth flow
-		authMiddleware := auth.Middleware(tokenStore, googleProvider, logger, cfg.BaseURL, cfg.AccessTokenTTL, urlResolver)
+		authMiddleware := auth.Middleware(tokenStore, googleProvider, saProvider, saValidator, logger, cfg.BaseURL, cfg.AccessTokenTTL, urlResolver)
 		mux.Handle("/", mcpLimiter.Middleware(authMiddleware(maxBytesHandler(5<<20, mcpHandler))))
 
 		logger.Info("OAuth configured",
@@ -250,11 +267,11 @@ Resources & actions:
 			"register_endpoint", cfg.BaseURL+"/register",
 			"protected_resource_metadata", cfg.BaseURL+"/.well-known/oauth-protected-resource",
 			"authorization_server_metadata", cfg.BaseURL+"/.well-known/oauth-authorization-server",
+			"service_account_enabled", cfg.IsServiceAccountEnabled(),
 		)
 	} else {
 		logger.Warn("OAuth not configured, running without authentication", "error", cfg.ValidateAuth())
 
-		// Register OAuth endpoints that return proper errors
 		oauthNotConfiguredHandler := func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -268,11 +285,9 @@ Resources & actions:
 		mux.HandleFunc("POST /token", oauthLimiter.MiddlewareFunc(oauthNotConfiguredHandler))
 		mux.HandleFunc("POST /register", registerLimiter.MiddlewareFunc(oauthNotConfiguredHandler))
 
-		// MCP endpoint without auth (still apply rate limit and body size limit)
 		mux.Handle("/", mcpLimiter.Middleware(maxBytesHandler(5<<20, mcpHandler)))
 	}
 
-	// Create HTTP server
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	httpServer := &http.Server{
 		Addr:              addr,
@@ -283,11 +298,9 @@ Resources & actions:
 		IdleTimeout:       120 * time.Second,
 	}
 
-	// Graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Start server
 	go func() {
 		logger.Info("starting GTM MCP server",
 			"port", cfg.Port,
@@ -299,11 +312,9 @@ Resources & actions:
 		}
 	}()
 
-	// Wait for shutdown signal
 	<-ctx.Done()
 	logger.Info("shutting down server")
 
-	// Give outstanding requests 10 seconds to complete
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -314,13 +325,10 @@ Resources & actions:
 	logger.Info("server stopped")
 }
 
-// registerTools adds MCP tools to the server.
 func registerTools(server *mcp.Server) {
-	// All tools (including ping and auth_status) are registered via the gateway
 	gtm.RegisterTools(server)
 }
 
-// maxBytesHandler wraps an http.Handler with a request body size limit.
 func maxBytesHandler(maxBytes int64, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {

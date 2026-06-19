@@ -9,20 +9,16 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// GtagConfigToolInput is the unified input for the gtag_config tool.
 type GtagConfigToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,update,delete,description:Operation to perform on Google tag configs"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	WorkspaceID string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
-	// Fields for get/update/delete:
-	GtagConfigID string `json:"gtagConfigId,omitempty" jsonschema:"description:Google tag config ID (required for get, update, delete)"`
-	// Fields for create/update:
+	Action         string `json:"action" jsonschema:"enum:list,get,create,update,delete,description:Operation to perform on Google tag configs"`
+	AccountID      string `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID    string `json:"containerId" jsonschema:"description:The GTM container ID"`
+	WorkspaceID    string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
+	GtagConfigID   string `json:"gtagConfigId,omitempty" jsonschema:"description:Google tag config ID (required for get, update, delete)"`
 	ParametersJSON string `json:"parametersJson,omitempty" jsonschema:"description:Gtag config parameters as JSON array (optional)"`
 	Type           string `json:"type,omitempty" jsonschema:"description:Gtag config type (optional for create)"`
-	// Fields for delete:
-	Confirm     bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
-	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for update)"`
+	Confirm        bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Fingerprint    string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for update)"`
 }
 
 type GtagConfigInfo struct {
@@ -56,7 +52,6 @@ type DeleteGtagConfigOutput struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
-
 
 func handleGtagConfigList(ctx context.Context, input GtagConfigToolInput) (*mcp.CallToolResult, any, error) {
 	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)

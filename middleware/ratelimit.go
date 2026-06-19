@@ -11,7 +11,6 @@ import (
 
 const maxVisitors = 10000
 
-// RateLimiter provides per-IP rate limiting for HTTP endpoints.
 type RateLimiter struct {
 	mu             sync.Mutex
 	visitors       map[string]*visitor
@@ -25,9 +24,6 @@ type visitor struct {
 	lastSeen time.Time
 }
 
-// NewRateLimiter creates a rate limiter with the given requests per second and burst.
-// trustedProxies is an optional list of IP addresses whose X-Forwarded-For headers
-// will be trusted for client IP extraction.
 func NewRateLimiter(rps float64, burst int, trustedProxies ...string) *RateLimiter {
 	tp := make(map[string]bool)
 	for _, p := range trustedProxies {
@@ -60,7 +56,6 @@ func (rl *RateLimiter) getVisitor(ip string) (*rate.Limiter, bool) {
 	return v.limiter, true
 }
 
-// cleanup removes stale visitors every minute.
 func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -76,16 +71,12 @@ func (rl *RateLimiter) cleanup() {
 	}
 }
 
-// extractClientIP returns the client IP from the request.
-// Only trusts X-Forwarded-For if the direct connection comes from a trusted proxy.
 func (rl *RateLimiter) extractClientIP(r *http.Request) string {
 	remoteIP := r.RemoteAddr
-	// Strip port from RemoteAddr (e.g. "192.168.1.1:12345" -> "192.168.1.1")
 	if idx := strings.LastIndex(remoteIP, ":"); idx != -1 {
 		remoteIP = remoteIP[:idx]
 	}
 
-	// Only trust X-Forwarded-For if the request comes from a known trusted proxy
 	if len(rl.trustedProxies) > 0 && rl.trustedProxies[remoteIP] {
 		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 			return strings.TrimSpace(strings.SplitN(forwarded, ",", 2)[0])
@@ -102,7 +93,6 @@ func rateLimitReject(w http.ResponseWriter) {
 	w.Write([]byte(`{"error":"rate_limit_exceeded","error_description":"Too many requests. Please retry later."}`))
 }
 
-// Middleware returns an HTTP middleware that rate limits by client IP.
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := rl.extractClientIP(r)
@@ -117,7 +107,6 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-// MiddlewareFunc wraps an http.HandlerFunc with rate limiting.
 func (rl *RateLimiter) MiddlewareFunc(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := rl.extractClientIP(r)
@@ -132,7 +121,6 @@ func (rl *RateLimiter) MiddlewareFunc(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// MaxBytesMiddleware wraps a handler with a request body size limit.
 func MaxBytesMiddleware(maxBytes int64, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {

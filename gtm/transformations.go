@@ -7,7 +7,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// ListTransformations returns all transformations in a workspace (server-side containers only).
 func (c *Client) ListTransformations(ctx context.Context, accountID, containerID, workspaceID string) ([]TransformationInfo, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s", accountID, containerID, workspaceID)
 
@@ -24,7 +23,6 @@ func (c *Client) ListTransformations(ctx context.Context, accountID, containerID
 	return toTransformations(resp.Transformation), nil
 }
 
-// GetTransformation returns a specific transformation by ID.
 func (c *Client) GetTransformation(ctx context.Context, accountID, containerID, workspaceID, transformationID string) (*TransformationInfo, error) {
 	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/transformations/%s",
 		accountID, containerID, workspaceID, transformationID)
@@ -40,7 +38,6 @@ func (c *Client) GetTransformation(ctx context.Context, accountID, containerID, 
 	return &result, nil
 }
 
-// CreateTransformation creates a new transformation in the workspace.
 func (c *Client) CreateTransformation(ctx context.Context, accountID, containerID, workspaceID string, input *TransformationInput) (*CreatedTransformation, error) {
 	parent := BuildWorkspacePath(accountID, containerID, workspaceID)
 
@@ -65,15 +62,12 @@ func (c *Client) CreateTransformation(ctx context.Context, accountID, containerI
 	}, nil
 }
 
-// UpdateTransformation updates an existing transformation. It fetches the current transformation first to get the fingerprint.
-// Fields not provided in input are preserved from the current transformation.
 func (c *Client) UpdateTransformation(ctx context.Context, path string, input *TransformationInput) (*CreatedTransformation, error) {
 	current, err := c.Service.Accounts.Containers.Workspaces.Transformations.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
 	}
 
-	// Preserve existing fields when not provided in input
 	params := toAPIParams(input.Parameter)
 	if params == nil {
 		params = current.Parameter
@@ -104,7 +98,6 @@ func (c *Client) UpdateTransformation(ctx context.Context, path string, input *T
 	}, nil
 }
 
-// DeleteTransformation deletes a transformation from the workspace.
 func (c *Client) DeleteTransformation(ctx context.Context, path string) error {
 	err := c.Service.Accounts.Containers.Workspaces.Transformations.Delete(path).Context(ctx).Do()
 	return mapGoogleError(err)

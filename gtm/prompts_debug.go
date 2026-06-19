@@ -8,15 +8,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// =============================================================================
-// DEBUG PROMPTS — "¿Por qué no funciona? / Se rompió algo"
-// Handlers: debug_trigger_coverage, tag_firing_dependency_graph,
-//           compare_workspaces, diff_versions,
-//           sync_workspace_conflicts, rollback_strategy,
-//           debug_sgtm_event_loss, debug_sgtm_tag_response
-// =============================================================================
-
-// handleDebugTriggerCoveragePrompt analyzes trigger coverage gaps and zombie triggers.
 func handleDebugTriggerCoveragePrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -57,7 +48,7 @@ func handleDebugTriggerCoveragePrompt(ctx context.Context, req *mcp.GetPromptReq
 	data := map[string]any{
 		"tags":            tags,
 		"triggers":        triggers,
-		"triggerMap":       triggerMap,
+		"triggerMap":      triggerMap,
 		"tagTriggerUsage": tagTriggerUsage,
 	}
 
@@ -116,7 +107,6 @@ Please analyze:
 	}, nil
 }
 
-// handleTagFiringDependencyGraphPrompt builds the complete firing dependency graph.
 func handleTagFiringDependencyGraphPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -204,7 +194,6 @@ Please generate:
 	}, nil
 }
 
-// handleCompareWorkspacesPrompt compares two workspaces in the same container.
 func handleCompareWorkspacesPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -302,7 +291,6 @@ Please provide:
 	}, nil
 }
 
-// handleDiffVersionsPrompt compares two container versions and generates a structured changelog.
 func handleDiffVersionsPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -429,7 +417,6 @@ Please generate a comprehensive diff analysis:
 	}, nil
 }
 
-// handleSyncWorkspaceConflictsPrompt syncs a workspace and analyzes conflicts.
 func handleSyncWorkspaceConflictsPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -539,7 +526,6 @@ Please analyze:
 	}, nil
 }
 
-// handleRollbackStrategyPrompt analyzes version history and generates an optimal rollback plan.
 func handleRollbackStrategyPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -659,7 +645,6 @@ Please analyze and recommend:
 	}, nil
 }
 
-// handleDebugSGTMEventLossPrompt diagnoses silent event loss in sGTM pipeline.
 func handleDebugSGTMEventLossPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -792,7 +777,6 @@ Walk through each pipeline stage and identify where events could be lost:
 	}, nil
 }
 
-// handleDebugSGTMTagResponsePrompt analyzes HTTP errors from outbound sGTM tags.
 func handleDebugSGTMTagResponsePrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	accountID := req.Params.Arguments["accountId"]
 	containerID := req.Params.Arguments["containerId"]
@@ -897,8 +881,7 @@ For each outbound tag, analyze potential failure points:
 
 5. **Payload Simulation**
    For each critical tag, reconstruct the likely outbound payload:
-   ` + "```json" + `
-   // Example: Meta CAPI expected payload
+   `+"```json"+`
    {
      "data": [{
        "event_name": "{{Event Name}}",
@@ -907,7 +890,7 @@ For each outbound tag, analyze potential failure points:
        "user_data": { ... }
      }]
    }
-   ` + "```" + `
+   `+"```"+`
    Identify fields that would be missing or malformed.
 
 6. **Monitoring Recommendations**

@@ -11,31 +11,21 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// VersionToolInput is the unified input for the version tool.
 type VersionToolInput struct {
-	Action string `json:"action" jsonschema:"enum:list,get,create,publish,compare,find_by_date,set_latest,export,import,description:Operation to perform on versions"`
-	// Format for export/import: "ui" (SCREAMING_CASE) or "api" (camelCase) or "auto" (detect)
-	Format      string `json:"format,omitempty" jsonschema:"enum:ui,api,auto,description:Format. ui = SCREAMING_CASE (GTM UI). api = camelCase (MCP/API). auto = detect. Default: ui for export - auto for import"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	// Fields used by create:
-	WorkspaceID string `json:"workspaceId,omitempty" jsonschema:"description:Workspace ID (required for create)"`
-	// Fields for get/publish/set_latest/export:
-	VersionID string `json:"versionId,omitempty" jsonschema:"description:Version ID (required for get, publish, set_latest, export)"`
-	// Fields for create:
-	Name string `json:"name,omitempty" jsonschema:"description:Version name (required for create)"`
-	// Fields for compare:
+	Action          string `json:"action" jsonschema:"enum:list,get,create,publish,compare,find_by_date,set_latest,export,import,description:Operation to perform on versions"`
+	Format          string `json:"format,omitempty" jsonschema:"enum:ui,api,auto,description:Format. ui = SCREAMING_CASE (GTM UI). api = camelCase (MCP/API). auto = detect. Default: ui for export - auto for import"`
+	AccountID       string `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID     string `json:"containerId" jsonschema:"description:The GTM container ID"`
+	WorkspaceID     string `json:"workspaceId,omitempty" jsonschema:"description:Workspace ID (required for create)"`
+	VersionID       string `json:"versionId,omitempty" jsonschema:"description:Version ID (required for get, publish, set_latest, export)"`
+	Name            string `json:"name,omitempty" jsonschema:"description:Version name (required for create)"`
 	BaseVersionID   string `json:"baseVersionId,omitempty" jsonschema:"description:Base version ID for comparison (required for compare, called versionIdA)"`
 	TargetVersionID string `json:"targetVersionId,omitempty" jsonschema:"description:Target version ID for comparison (required for compare, called versionIdB)"`
-	// Fields for find_by_date:
-	Date string `json:"date,omitempty" jsonschema:"description:Date in YYYY-MM-DD format to find which version was active (required for find_by_date)"`
-	// Fields for publish:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for publish or import (safety guard)"`
-	// Fields for import:
-	ExportJSON string `json:"exportJson,omitempty" jsonschema:"description:JSON string from a previous export (required for import)"`
-	DryRun     bool   `json:"dryRun,omitempty" jsonschema:"description:If true only analyze and return a plan without creating anything (for import)"`
-	// Fields for export:
-	OutputPath string `json:"outputPath,omitempty" jsonschema:"description:IMPORTANT - Before calling export you MUST ask the user where they want to save the file. Provide a suggested default path like ~/Downloads/GTM-export-<containerId>_v<versionId>.json but let the user confirm or change it. This field is the local filesystem path where the export JSON will be saved. The MCP server runs on the user's machine so this writes directly to their local disk."`
+	Date            string `json:"date,omitempty" jsonschema:"description:Date in YYYY-MM-DD format to find which version was active (required for find_by_date)"`
+	Confirm         bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for publish or import (safety guard)"`
+	ExportJSON      string `json:"exportJson,omitempty" jsonschema:"description:JSON string from a previous export (required for import)"`
+	DryRun          bool   `json:"dryRun,omitempty" jsonschema:"description:If true only analyze and return a plan without creating anything (for import)"`
+	OutputPath      string `json:"outputPath,omitempty" jsonschema:"description:IMPORTANT - Before calling export you MUST ask the user where they want to save the file. Provide a suggested default path like ~/Downloads/GTM-export-<containerId>_v<versionId>.json but let the user confirm or change it. This field is the local filesystem path where the export JSON will be saved. The MCP server runs on the user's machine so this writes directly to their local disk."`
 }
 
 func handleVersionList(ctx context.Context, input VersionToolInput) (*mcp.CallToolResult, any, error) {
@@ -162,7 +152,6 @@ func handleVersionCompare(ctx context.Context, input VersionToolInput) (*mcp.Cal
 		return nil, nil, fmt.Errorf("failed to get target version %s: %w", input.TargetVersionID, err)
 	}
 
-	// Compare all entity types
 	tagChanges := diffEntities(tagMap(vA.Tags), tagMap(vB.Tags))
 	trigChanges := diffEntities(triggerMap(vA.Triggers), triggerMap(vB.Triggers))
 	varChanges := diffEntities(variableMap(vA.Variables), variableMap(vB.Variables))
@@ -245,7 +234,6 @@ func handleVersionFindByDate(ctx context.Context, input VersionToolInput) (*mcp.
 		}, nil
 	}
 
-	// Binary search through version headers
 	low, high := 0, len(headers)-1
 	bestIdx := -1
 	apiCalls := 0
@@ -337,7 +325,6 @@ func handleVersionExport(ctx context.Context, input VersionToolInput) (*mcp.Call
 		return nil, nil, err
 	}
 
-	// Default to "ui" format
 	format := input.Format
 	if format == "" {
 		format = "ui"
@@ -361,7 +348,6 @@ func handleVersionExport(ctx context.Context, input VersionToolInput) (*mcp.Call
 		}
 	}
 
-	// Pretty-print the JSON for readability
 	var prettyJSON []byte
 	var raw interface{}
 	if err := json.Unmarshal(rawJSON, &raw); err == nil {
@@ -370,9 +356,7 @@ func handleVersionExport(ctx context.Context, input VersionToolInput) (*mcp.Call
 		prettyJSON = rawJSON
 	}
 
-	// Dual-mode export: local (stdio) writes to disk, remote (HTTP) returns inline.
 	if IsLocalMode(ctx) {
-		// Stdio mode: write to user's local filesystem
 		outputPath := input.OutputPath
 		if outputPath == "" {
 			home, _ := os.UserHomeDir()
@@ -401,7 +385,6 @@ func handleVersionExport(ctx context.Context, input VersionToolInput) (*mcp.Call
 		}, nil, nil
 	}
 
-	// HTTP mode: return JSON inline (server filesystem is not the user's)
 	suggestedFilename := fmt.Sprintf("GTM-export-%s_v%s.json", input.ContainerID, input.VersionID)
 	meta := fmt.Sprintf("EXPORT COMPLETE — %d bytes | Format: %s\n"+
 		"Suggested filename: %s\n"+

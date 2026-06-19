@@ -5,7 +5,6 @@ import (
 	"net/http"
 )
 
-// OAuthMetadata represents RFC 8414 OAuth 2.0 Authorization Server Metadata.
 type OAuthMetadata struct {
 	Issuer                            string   `json:"issuer"`
 	AuthorizationEndpoint             string   `json:"authorization_endpoint"`
@@ -18,27 +17,30 @@ type OAuthMetadata struct {
 	CodeChallengeMethodsSupported     []string `json:"code_challenge_methods_supported"`
 }
 
-// NewOAuthMetadata creates metadata for the given base URL.
-func NewOAuthMetadata(baseURL string) *OAuthMetadata {
+func NewOAuthMetadata(baseURL string, serviceAccountEnabled bool) *OAuthMetadata {
+	grantTypes := []string{"authorization_code", "refresh_token"}
+	tokenAuthMethods := []string{"client_secret_post", "none"}
+
+	if serviceAccountEnabled {
+		grantTypes = append(grantTypes, "client_credentials")
+		tokenAuthMethods = append(tokenAuthMethods, "private_key_jwt")
+	}
+
 	return &OAuthMetadata{
-		Issuer:                baseURL,
-		AuthorizationEndpoint: baseURL + "/authorize",
-		TokenEndpoint:         baseURL + "/token",
-		RegistrationEndpoint:  baseURL + "/register",
-		ScopesSupported: GoogleScopes,
+		Issuer:                            baseURL,
+		AuthorizationEndpoint:             baseURL + "/authorize",
+		TokenEndpoint:                     baseURL + "/token",
+		RegistrationEndpoint:              baseURL + "/register",
+		ScopesSupported:                   GoogleScopes,
 		ResponseTypesSupported:            []string{"code"},
-		GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
-		TokenEndpointAuthMethodsSupported: []string{"client_secret_post", "none"},
+		GrantTypesSupported:               grantTypes,
+		TokenEndpointAuthMethodsSupported: tokenAuthMethods,
 		CodeChallengeMethodsSupported:     []string{"S256"},
 	}
 }
 
-// MetadataHandler returns an HTTP handler for /.well-known/oauth-authorization-server.
-// If resolver is non-nil, the base URL is resolved dynamically per-request
-// (validated against allowed hosts). Otherwise, baseURL is used statically.
-func MetadataHandler(baseURL string, resolver *URLResolver) http.HandlerFunc {
-	// Pre-compute for the static case
-	staticMetadata := NewOAuthMetadata(baseURL)
+func MetadataHandler(baseURL string, resolver *URLResolver, serviceAccountEnabled bool) http.HandlerFunc {
+	staticMetadata := NewOAuthMetadata(baseURL, serviceAccountEnabled)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -49,7 +51,7 @@ func MetadataHandler(baseURL string, resolver *URLResolver) http.HandlerFunc {
 		metadata := staticMetadata
 		if resolver != nil {
 			if resolved := resolver.Resolve(r); resolved != baseURL {
-				metadata = NewOAuthMetadata(resolved)
+				metadata = NewOAuthMetadata(resolved, serviceAccountEnabled)
 			}
 		}
 

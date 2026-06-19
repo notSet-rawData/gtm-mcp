@@ -10,9 +10,10 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"gtm-mcp-server/auth/serviceauth"
 )
 
-// Server handles OAuth2 authorization endpoints.
 type Server struct {
 	baseURL           string
 	google            *GoogleProvider
@@ -20,10 +21,10 @@ type Server struct {
 	logger            *slog.Logger
 	accessTokenTTL    time.Duration
 	allowedDCRDomains map[string]bool
+	saProvider        *serviceauth.Provider
+	saValidator       *serviceauth.Validator
 }
 
-// NewServer creates a new OAuth server.
-// allowedDCRDomains restricts which domains can register via DCR. Empty = accept any.
 func NewServer(baseURL string, google *GoogleProvider, store TokenStore, logger *slog.Logger, accessTokenTTL time.Duration, allowedDCRDomains ...string) *Server {
 	dcrDomains := make(map[string]bool)
 	for _, d := range allowedDCRDomains {
@@ -39,14 +40,18 @@ func NewServer(baseURL string, google *GoogleProvider, store TokenStore, logger 
 	}
 }
 
-// AuthorizeHandler handles GET /authorize - redirects to Google OAuth.
+func (s *Server) WithServiceAccount(provider *serviceauth.Provider, validator *serviceauth.Validator) *Server {
+	s.saProvider = provider
+	s.saValidator = validator
+	return s
+}
+
 func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse OAuth parameters from client (Claude or ChatGPT)
 	clientID := r.URL.Query().Get("client_id")
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	responseType := r.URL.Query().Get("response_type")
@@ -55,7 +60,6 @@ func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 	codeChallengeMethod := r.URL.Query().Get("code_challenge_method")
 	resource := r.URL.Query().Get("resource") // RFC 9728: resource indicator
 
-	// Validate required parameters
 	if responseType != "code" {
 		s.errorResponse(w, "unsupported_response_type", "Only 'code' response type is supported")
 		return
@@ -66,12 +70,8 @@ func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate redirect URI
-	// If client is registered via DCR, validate against their registered URIs
-	// Otherwise fall back to known safe patterns
 	if clientID != "" {
 		if client, err := s.store.GetClient(clientID); err == nil {
-			// Client is registered, validate against registered redirect_uris
 			validRedirect := false
 			for _, uri := range client.RedirectURIs {
 				if uri == redirectURI {
@@ -84,7 +84,6 @@ func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			// Client not registered via DCR, fall back to default validation
 			if !isValidRedirectURI(redirectURI) {
 				s.errorResponse(w, "invalid_request", "Invalid redirect_uri")
 				return
@@ -95,13 +94,11 @@ func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// PKCE is required
 	if codeChallenge == "" || codeChallengeMethod != "S256" {
 		s.errorResponse(w, "invalid_request", "PKCE with S256 is required")
 		return
 	}
 
-	// Generate our own state for Google OAuth
 	googleState, err := GenerateToken(32)
 	if err != nil {
 		s.logger.Error("failed to generate state", "error", err)
@@ -109,7 +106,6 @@ func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store the auth state for later verification
 	authState := &AuthState{
 		State:        googleState,
 		ClientState:  state,
@@ -126,7 +122,6 @@ func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Redirect to Google OAuth
 	googleAuthURL := s.google.AuthCodeURL(authState.State)
 
 	s.logger.Info("redirecting to Google OAuth",
@@ -137,14 +132,12 @@ func (s *Server) AuthorizeHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, googleAuthURL, http.StatusFound)
 }
 
-// CallbackHandler handles GET /oauth/callback - receives code from Google.
 func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Check for errors from Google
 	if errCode := r.URL.Query().Get("error"); errCode != "" {
 		errDesc := r.URL.Query().Get("error_description")
 		s.logger.Error("Google OAuth error", "error", errCode, "description", errDesc)
@@ -160,7 +153,6 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retrieve stored auth state using the google state directly
 	authState, err := s.store.GetState(googleState)
 	if err != nil {
 		s.logger.Error("failed to get state", "error", err)
@@ -168,13 +160,10 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the client's original state
 	claudeState := authState.ClientState
 
-	// Clean up the state
 	_ = s.store.DeleteState(googleState)
 
-	// Exchange code with Google
 	googleToken, err := s.google.Exchange(r.Context(), code)
 	if err != nil {
 		s.logger.Error("failed to exchange code with Google", "error", err)
@@ -182,7 +171,6 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate our own authorization code to return to Claude
 	ourCode, err := GenerateToken(32)
 	if err != nil {
 		s.logger.Error("failed to generate code", "error", err)
@@ -190,7 +178,6 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store temporarily with the Google token (code is short-lived)
 	tempToken := &TokenInfo{
 		AccessToken: ourCode, // Temporary: using code as key
 		GoogleToken: googleToken,
@@ -199,7 +186,6 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:   time.Now().Add(5 * time.Minute), // Code expires in 5 min
 	}
 
-	// Store code verifier for PKCE verification
 	codeState := &AuthState{
 		State:        ourCode,
 		CodeVerifier: authState.CodeVerifier,
@@ -221,7 +207,6 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Redirect back to Claude with our code
 	redirectURL, _ := url.Parse(authState.RedirectURI)
 	q := redirectURL.Query()
 	q.Set("code", ourCode)
@@ -235,14 +220,12 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 }
 
-// TokenHandler handles POST /token - exchanges code for tokens.
 func (s *Server) TokenHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse form data
 	if err := r.ParseForm(); err != nil {
 		s.tokenError(w, "invalid_request", "Failed to parse request")
 		return
@@ -255,6 +238,8 @@ func (s *Server) TokenHandler(w http.ResponseWriter, r *http.Request) {
 		s.handleAuthorizationCodeGrant(w, r)
 	case "refresh_token":
 		s.handleRefreshTokenGrant(w, r)
+	case "client_credentials":
+		s.handleClientCredentialsGrant(w, r)
 	default:
 		s.tokenError(w, "unsupported_grant_type", "Unsupported grant type")
 	}
@@ -271,7 +256,6 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Atomically consume the code state (single-use)
 	codeState, err := s.store.ConsumeState(code)
 	if err != nil {
 		s.logger.Error("failed to get code state", "error", err)
@@ -279,7 +263,6 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Validate client_id and redirect_uri match the original authorization request
 	if clientID != "" && clientID != codeState.ClientID {
 		s.logger.Error("client_id mismatch", "expected", codeState.ClientID, "got", clientID)
 		s.tokenError(w, "invalid_grant", "client_id does not match")
@@ -291,13 +274,11 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Verify PKCE
 	if codeVerifier == "" {
 		s.tokenError(w, "invalid_request", "Missing code_verifier")
 		return
 	}
 
-	// Verify: SHA256(code_verifier) == code_challenge
 	h := sha256.Sum256([]byte(codeVerifier))
 	calculatedChallenge := base64.RawURLEncoding.EncodeToString(h[:])
 
@@ -307,7 +288,6 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Get the temporary token with Google credentials
 	tempToken, err := s.store.GetTokenByAccess(code)
 	if err != nil {
 		s.logger.Error("failed to get temp token", "error", err)
@@ -315,10 +295,8 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Clean up temporary token
 	_ = s.store.DeleteToken(code)
 
-	// Generate real tokens
 	accessToken, err := GenerateToken(32)
 	if err != nil {
 		s.logger.Error("failed to generate access token", "error", err)
@@ -333,7 +311,6 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Create and store the real token
 	tokenInfo := &TokenInfo{
 		AccessToken:      accessToken,
 		RefreshToken:     refreshToken,
@@ -352,7 +329,6 @@ func (s *Server) handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Req
 
 	s.logger.Info("issued access token", "client_id", codeState.ClientID)
 
-	// Return token response
 	s.tokenResponse(w, accessToken, refreshToken, int(s.accessTokenTTL.Seconds()))
 }
 
@@ -364,7 +340,6 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get existing token info
 	tokenInfo, err := s.store.GetTokenByRefresh(refreshToken)
 	if err != nil {
 		s.logger.Error("failed to get token by refresh", "error", err)
@@ -372,7 +347,6 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Refresh the Google token if needed
 	if tokenInfo.GoogleToken.Expiry.Before(time.Now()) {
 		newGoogleToken, err := s.google.RefreshToken(r.Context(), tokenInfo.GoogleToken.RefreshToken)
 		if err != nil {
@@ -383,7 +357,6 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 		tokenInfo.GoogleToken = newGoogleToken
 	}
 
-	// Generate new access token and new refresh token (rotation)
 	newAccessToken, err := GenerateToken(32)
 	if err != nil {
 		s.logger.Error("failed to generate access token", "error", err)
@@ -398,8 +371,6 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Delete old token (invalidates the old refresh token)
-	// Atomically rotate: store new then delete old in one operation
 	newTokenInfo := &TokenInfo{
 		AccessToken:      newAccessToken,
 		RefreshToken:     newRefreshToken,
@@ -418,7 +389,6 @@ func (s *Server) handleRefreshTokenGrant(w http.ResponseWriter, r *http.Request)
 
 	s.logger.Info("refreshed access token", "client_id", tokenInfo.ClientID)
 
-	// Return token response with new refresh token
 	s.tokenResponse(w, newAccessToken, newRefreshToken, int(s.accessTokenTTL.Seconds()))
 }
 
@@ -452,7 +422,6 @@ func (s *Server) errorResponse(w http.ResponseWriter, errCode, errDesc string) {
 	http.Error(w, fmt.Sprintf("%s: %s", errCode, errDesc), http.StatusBadRequest)
 }
 
-// validRedirectHosts maps allowed hostnames to required scheme and path prefix.
 var validRedirectHosts = map[string]struct {
 	scheme     string
 	pathPrefix string
@@ -466,45 +435,122 @@ var validRedirectHosts = map[string]struct {
 	"api2.cursor.sh":      {"https", "/agents/mcp/oauth/callback"},
 }
 
-// validRedirectCustomSchemes lists allowed custom URI schemes for known MCP IDE clients.
-// These clients use non-HTTP(S) schemes for OAuth callbacks (e.g. cursor://).
-// Format: full URI prefix (scheme + authority + path) for exact matching.
 var validRedirectCustomSchemes = []string{
 	"cursor://anysphere.cursor-mcp/oauth/callback",
 }
 
-// isValidRedirectURI checks if the redirect URI is from a known MCP client.
-// Uses exact hostname matching to prevent subdomain attacks (e.g., localhost.evil.com).
-// Also supports custom URI schemes for known IDE clients (e.g. Cursor).
 func isValidRedirectURI(uri string) bool {
 	parsed, err := url.Parse(uri)
 	if err != nil || parsed.Scheme == "" {
 		return false
 	}
 
-	// Check against known MCP IDE clients with custom URI schemes
 	for _, prefix := range validRedirectCustomSchemes {
 		if strings.HasPrefix(uri, prefix) {
 			return true
 		}
 	}
 
-	// For standard HTTP(S) URIs, require a host
 	if parsed.Host == "" {
 		return false
 	}
 
 	hostname := parsed.Hostname()
 
-	// Allow localhost/127.0.0.1 for development (http or https)
 	if hostname == "localhost" || hostname == "127.0.0.1" {
 		return parsed.Scheme == "http" || parsed.Scheme == "https"
 	}
 
-	// Check against known MCP client hosts
 	if rule, ok := validRedirectHosts[hostname]; ok {
 		return parsed.Scheme == rule.scheme && strings.HasPrefix(parsed.Path, rule.pathPrefix)
 	}
 
 	return false
+}
+
+func (s *Server) handleClientCredentialsGrant(w http.ResponseWriter, r *http.Request) {
+	if s.saProvider == nil || s.saValidator == nil {
+		s.tokenError(w, "unsupported_grant_type",
+			"client_credentials grant requires Service Account configuration")
+		return
+	}
+
+	assertionType := r.FormValue("client_assertion_type")
+	const expectedAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+	if assertionType != expectedAssertionType {
+		s.tokenError(w, "invalid_client",
+			fmt.Sprintf("client_assertion_type must be %q", expectedAssertionType))
+		return
+	}
+
+	clientAssertion := r.FormValue("client_assertion")
+	if clientAssertion == "" {
+		s.tokenError(w, "invalid_client", "client_assertion is required")
+		return
+	}
+
+	claims, err := s.saValidator.ValidateJWT(r.Context(), clientAssertion)
+	if err != nil {
+		s.logger.Warn("sa_client_creds_failed",
+			"reason", "jwt_validation",
+			"error", err.Error(),
+		)
+		s.tokenError(w, "invalid_client", "Invalid client assertion")
+		return
+	}
+
+	googleToken, err := s.saProvider.GoogleToken(r.Context())
+	if err != nil {
+		s.logger.Error("sa_google_token_failed",
+			"service_account", s.saProvider.Email(),
+			"error", err,
+		)
+		s.tokenError(w, "server_error", "Failed to obtain service account token")
+		return
+	}
+
+	mcpToken, err := GenerateToken(32)
+	if err != nil {
+		s.logger.Error("sa_token_generation_failed", "error", err)
+		s.tokenError(w, "server_error", "Failed to generate token")
+		return
+	}
+
+	_ = r.FormValue("scope") // Accept scope param for RFC compliance
+
+	now := time.Now()
+	ttl := s.accessTokenTTL
+	if ttl > 1*time.Hour {
+		ttl = 1 * time.Hour
+	}
+
+	tokenInfo := &TokenInfo{
+		AccessToken:  mcpToken,
+		RefreshToken: "",            // No refresh token for SA — SA always gets fresh tokens via JWT
+		ClientID:     claims.Issuer, // SA email as client identifier
+		ExpiresAt:    now.Add(ttl),
+		GoogleToken:  googleToken,
+		CreatedAt:    now,
+	}
+
+	if err := s.store.StoreToken(tokenInfo); err != nil {
+		s.logger.Error("sa_token_store_failed", "error", err)
+		s.tokenError(w, "server_error", "Failed to store token")
+		return
+	}
+
+	s.logger.Info("sa_client_credentials_issued",
+		"service_account", claims.Issuer,
+		"mode", string(s.saProvider.Mode()),
+		"token_ttl", ttl.String(),
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"access_token": mcpToken,
+		"token_type":   "Bearer",
+		"expires_in":   int(ttl.Seconds()),
+	})
 }

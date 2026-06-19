@@ -8,26 +8,20 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// FolderToolInput is the unified input for the folder tool.
 type FolderToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,update,delete,move,audit,revert,description:Operation to perform on folders"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	WorkspaceID string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
-	// Fields for get/update/delete/move:
-	FolderID string `json:"folderId,omitempty" jsonschema:"description:Folder ID (required for get, update, delete, move)"`
-	// Fields for create/update:
-	Name  string `json:"name,omitempty" jsonschema:"description:Folder name (required for create/update)"`
-	Notes string `json:"notes,omitempty" jsonschema:"description:Folder notes (optional)"`
-	// Fields for move:
+	Action      string   `json:"action" jsonschema:"enum:list,get,create,update,delete,move,audit,revert,description:Operation to perform on folders"`
+	AccountID   string   `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID string   `json:"containerId" jsonschema:"description:The GTM container ID"`
+	WorkspaceID string   `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
+	FolderID    string   `json:"folderId,omitempty" jsonschema:"description:Folder ID (required for get, update, delete, move)"`
+	Name        string   `json:"name,omitempty" jsonschema:"description:Folder name (required for create/update)"`
+	Notes       string   `json:"notes,omitempty" jsonschema:"description:Folder notes (optional)"`
 	TagIDs      []string `json:"tagIds,omitempty" jsonschema:"description:Tag IDs to move into the folder (for move action)"`
 	TriggerIDs  []string `json:"triggerIds,omitempty" jsonschema:"description:Trigger IDs to move into the folder (for move action)"`
 	VariableIDs []string `json:"variableIds,omitempty" jsonschema:"description:Variable IDs to move into the folder (for move action)"`
-	// Fields for delete:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
-	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
+	Confirm     bool     `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Fingerprint string   `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
 }
-
 
 func handleFolderList(ctx context.Context, input FolderToolInput) (*mcp.CallToolResult, any, error) {
 	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)
@@ -203,13 +197,11 @@ func handleFolderAudit(ctx context.Context, input FolderToolInput) (*mcp.CallToo
 	tCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
-	// List folders
 	folders, err := wc.Client.ListFolders(tCtx, wc.AccountID, wc.ContainerID, wc.WorkspaceID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list folders: %w", err)
 	}
 
-	// Build set of entity IDs in folders
 	inFolder := make(map[string]bool)
 	for _, f := range folders {
 		entities, err := wc.Client.GetFolderEntities(tCtx, wc.AccountID, wc.ContainerID, wc.WorkspaceID, f.FolderID)

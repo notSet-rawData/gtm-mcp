@@ -7,20 +7,18 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// Environment is a simplified representation of a GTM environment.
 type Environment struct {
-	EnvironmentID    string `json:"environmentId"`
-	Name             string `json:"name"`
-	Description      string `json:"description,omitempty"`
-	Type             string `json:"type"` // user, live, latest, workspace
+	EnvironmentID      string `json:"environmentId"`
+	Name               string `json:"name"`
+	Description        string `json:"description,omitempty"`
+	Type               string `json:"type"` // user, live, latest, workspace
 	ContainerVersionID string `json:"containerVersionId,omitempty"`
-	URL              string `json:"url,omitempty"`
-	AuthorizationCode string `json:"authorizationCode,omitempty"`
-	Path             string `json:"path"`
-	Fingerprint      string `json:"fingerprint,omitempty"`
+	URL                string `json:"url,omitempty"`
+	AuthorizationCode  string `json:"authorizationCode,omitempty"`
+	Path               string `json:"path"`
+	Fingerprint        string `json:"fingerprint,omitempty"`
 }
 
-// ListEnvironments returns all environments in a container.
 func (c *Client) ListEnvironments(ctx context.Context, accountID, containerID string) ([]Environment, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s", accountID, containerID)
 
@@ -34,7 +32,6 @@ func (c *Client) ListEnvironments(ctx context.Context, accountID, containerID st
 	return toEnvironments(resp.Environment), nil
 }
 
-// GetEnvironment returns a specific environment by ID.
 func (c *Client) GetEnvironment(ctx context.Context, accountID, containerID, environmentID string) (*Environment, error) {
 	path := fmt.Sprintf("accounts/%s/containers/%s/environments/%s",
 		accountID, containerID, environmentID)
@@ -58,7 +55,6 @@ func toEnvironments(environments []*tagmanager.Environment) []Environment {
 	return result
 }
 
-// CreateEnvironment creates a new user-defined environment in a container.
 func (c *Client) CreateEnvironment(ctx context.Context, accountID, containerID string, input *EnvironmentInput) (*Environment, error) {
 	parent := BuildContainerPath(accountID, containerID)
 
@@ -80,7 +76,6 @@ func (c *Client) CreateEnvironment(ctx context.Context, accountID, containerID s
 	return &r, nil
 }
 
-// UpdateEnvironment updates an existing environment. Fetches current fingerprint first.
 func (c *Client) UpdateEnvironment(ctx context.Context, path string, input *EnvironmentInput) (*Environment, error) {
 	current, err := c.Service.Accounts.Containers.Environments.Get(path).Context(ctx).Do()
 	if err != nil {
@@ -103,13 +98,11 @@ func (c *Client) UpdateEnvironment(ctx context.Context, path string, input *Envi
 	return &r, nil
 }
 
-// DeleteEnvironment deletes an environment from a container.
 func (c *Client) DeleteEnvironment(ctx context.Context, path string) error {
 	err := c.Service.Accounts.Containers.Environments.Delete(path).Context(ctx).Do()
 	return mapGoogleError(err)
 }
 
-// ReauthorizeEnvironment generates a new authorization code for the environment.
 func (c *Client) ReauthorizeEnvironment(ctx context.Context, path string) (*Environment, error) {
 	current, err := c.Service.Accounts.Containers.Environments.Get(path).Context(ctx).Do()
 	if err != nil {

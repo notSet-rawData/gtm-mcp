@@ -19,7 +19,6 @@ func TestIsValidRedirectURI(t *testing.T) {
 		uri      string
 		expected bool
 	}{
-		// Valid Claude.ai URIs
 		{
 			name:     "claude.ai with correct path",
 			uri:      "https://claude.ai/api/mcp/auth_callback",
@@ -40,13 +39,11 @@ func TestIsValidRedirectURI(t *testing.T) {
 			uri:      "http://claude.ai/api/mcp/auth_callback",
 			expected: false,
 		},
-		// Valid claude.com URIs
 		{
 			name:     "claude.com with correct path",
 			uri:      "https://claude.com/api/mcp/auth_callback",
 			expected: true,
 		},
-		// Valid ChatGPT URIs
 		{
 			name:     "chatgpt.com with correct path",
 			uri:      "https://chatgpt.com/connector_platform_oauth_redirect",
@@ -57,7 +54,6 @@ func TestIsValidRedirectURI(t *testing.T) {
 			uri:      "https://chatgpt.com/wrong/path",
 			expected: false,
 		},
-		// Valid OpenAI platform URIs
 		{
 			name:     "platform.openai.com with correct path",
 			uri:      "https://platform.openai.com/apps-manage/oauth",
@@ -68,7 +64,6 @@ func TestIsValidRedirectURI(t *testing.T) {
 			uri:      "https://platform.openai.com/wrong",
 			expected: false,
 		},
-		// Localhost URIs (development)
 		{
 			name:     "localhost with http",
 			uri:      "http://localhost:8080/callback",
@@ -89,7 +84,6 @@ func TestIsValidRedirectURI(t *testing.T) {
 			uri:      "https://127.0.0.1:8080/callback",
 			expected: true,
 		},
-		// Invalid URIs - subdomain attacks
 		{
 			name:     "subdomain attack - claude.ai.evil.com",
 			uri:      "https://claude.ai.evil.com/api/mcp/auth_callback",
@@ -105,7 +99,6 @@ func TestIsValidRedirectURI(t *testing.T) {
 			uri:      "http://localhost.evil.com/callback",
 			expected: false,
 		},
-		// Invalid URIs - malformed
 		{
 			name:     "empty URI",
 			uri:      "",
@@ -126,7 +119,6 @@ func TestIsValidRedirectURI(t *testing.T) {
 			uri:      "https:///callback",
 			expected: false,
 		},
-		// Invalid URIs - unknown domains
 		{
 			name:     "unknown domain",
 			uri:      "https://evil.com/callback",
@@ -142,7 +134,6 @@ func TestIsValidRedirectURI(t *testing.T) {
 			uri:      "javascript:alert('xss')",
 			expected: false,
 		},
-		// Cursor IDE URIs
 		{
 			name:     "cursor valid redirect URI",
 			uri:      "cursor://anysphere.cursor-mcp/oauth/callback",
@@ -402,7 +393,6 @@ func TestServer_AuthorizeHandler_RegisteredClientValidation(t *testing.T) {
 	store := NewMemoryTokenStore()
 	defer store.Close()
 
-	// Register a client with specific redirect URIs
 	clientInfo := &ClientInfo{
 		ClientID:     "registered-client",
 		RedirectURIs: []string{"https://example.com/callback"},
@@ -413,7 +403,6 @@ func TestServer_AuthorizeHandler_RegisteredClientValidation(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	server := NewServer("http://localhost:8080", nil, store, logger, 1*time.Hour)
 
-	// Test that unregistered redirect URI is rejected for a registered client
 	params := url.Values{}
 	params.Set("response_type", "code")
 	params.Set("state", "test-state")
@@ -433,30 +422,28 @@ func TestServer_AuthorizeHandler_RegisteredClientValidation(t *testing.T) {
 }
 
 func TestPKCEVerification(t *testing.T) {
-	// Test PKCE challenge/verifier validation logic
 	tests := []struct {
-		name         string
-		verifier     string
-		challenge    string
-		shouldMatch  bool
+		name        string
+		verifier    string
+		challenge   string
+		shouldMatch bool
 	}{
 		{
-			name:         "valid match",
-			verifier:     "test-verifier-123",
-			challenge:    "", // Will be calculated
-			shouldMatch:  true,
+			name:        "valid match",
+			verifier:    "test-verifier-123",
+			challenge:   "", // Will be calculated
+			shouldMatch: true,
 		},
 		{
-			name:         "invalid match",
-			verifier:     "test-verifier-123",
-			challenge:    "wrong-challenge",
-			shouldMatch:  false,
+			name:        "invalid match",
+			verifier:    "test-verifier-123",
+			challenge:   "wrong-challenge",
+			shouldMatch: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Calculate the correct challenge
 			h := sha256.Sum256([]byte(tt.verifier))
 			correctChallenge := base64.RawURLEncoding.EncodeToString(h[:])
 
@@ -465,7 +452,6 @@ func TestPKCEVerification(t *testing.T) {
 				challenge = correctChallenge
 			}
 
-			// Verify
 			h2 := sha256.Sum256([]byte(tt.verifier))
 			calculatedChallenge := base64.RawURLEncoding.EncodeToString(h2[:])
 
@@ -528,7 +514,6 @@ func TestServer_HandleAuthorizationCodeGrant_MissingCode(t *testing.T) {
 
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
-	// Missing code
 
 	req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -579,7 +564,6 @@ func TestServer_HandleAuthorizationCodeGrant_MissingCodeVerifier(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	server := NewServer("http://localhost:8080", nil, store, logger, 1*time.Hour)
 
-	// Store a valid code state
 	codeState := &AuthState{
 		State:        "valid-code",
 		CodeVerifier: "test-challenge",
@@ -590,7 +574,6 @@ func TestServer_HandleAuthorizationCodeGrant_MissingCodeVerifier(t *testing.T) {
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
 	form.Set("code", "valid-code")
-	// Missing code_verifier
 
 	req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -616,7 +599,6 @@ func TestServer_HandleRefreshTokenGrant_MissingRefreshToken(t *testing.T) {
 
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
-	// Missing refresh_token
 
 	req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

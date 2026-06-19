@@ -9,22 +9,17 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// ContainerToolInput is the unified input for the container tool.
 type ContainerToolInput struct {
-	Action    string `json:"action" jsonschema:"enum:list,create,delete,description:Operation to perform on containers"`
-	AccountID string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	// Fields for list: only accountId needed
-	// Fields for create:
+	Action            string   `json:"action" jsonschema:"enum:list,create,delete,description:Operation to perform on containers"`
+	AccountID         string   `json:"accountId" jsonschema:"description:The GTM account ID"`
 	ContainerID       string   `json:"containerId,omitempty" jsonschema:"description:The GTM container ID (required for delete)"`
 	Name              string   `json:"name,omitempty" jsonschema:"description:Container display name (required for create)"`
 	UsageContext      []string `json:"usageContext,omitempty" jsonschema:"description:Usage context: web, android, ios, amp, server (required for create)"`
 	Notes             string   `json:"notes,omitempty" jsonschema:"description:Container notes (optional, for create)"`
 	DomainName        []string `json:"domainName,omitempty" jsonschema:"description:Domain names for the container (optional, for create)"`
 	TaggingServerUrls []string `json:"taggingServerUrls,omitempty" jsonschema:"description:Server-side container URLs (optional, for server containers)"`
-	// Fields for delete:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true to confirm deletion (required for delete)"`
+	Confirm           bool     `json:"confirm,omitempty" jsonschema:"description:Must be true to confirm deletion (required for delete)"`
 }
-
 
 func handleListContainers(ctx context.Context, input ContainerToolInput) (*mcp.CallToolResult, any, error) {
 	if input.AccountID == "" {

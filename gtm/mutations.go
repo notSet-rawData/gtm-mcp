@@ -7,7 +7,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// CreateTag creates a new tag in the workspace.
 func (c *Client) CreateTag(ctx context.Context, accountID, containerID, workspaceID string, input *TagInput) (*CreatedTag, error) {
 	parent := BuildWorkspacePath(accountID, containerID, workspaceID)
 
@@ -17,23 +16,23 @@ func (c *Client) CreateTag(ctx context.Context, accountID, containerID, workspac
 	}
 
 	tag := &tagmanager.Tag{
-		Name:                        input.Name,
-		Type:                        input.Type,
-		FiringTriggerId:             input.FiringTriggerId,
-		BlockingTriggerId:           input.BlockingTriggerId,
-		Parameter:                   toAPIParams(input.Parameter),
-		Notes:                       input.Notes,
-		Paused:                      paused,
-		TagFiringOption:             input.TagFiringOption,
-		SetupTag:                    toAPISetupTags(input.SetupTag),
-		TeardownTag:                 toAPITeardownTags(input.TeardownTag),
-		Priority:                    toAPIParam(input.Priority),
-		ParentFolderId:              input.ParentFolderID,
-		ScheduleStartMs:             input.ScheduleStartMs,
-		ScheduleEndMs:               input.ScheduleEndMs,
-		MonitoringMetadata:          toAPIParam(input.MonitoringMetadata),
+		Name:                         input.Name,
+		Type:                         input.Type,
+		FiringTriggerId:              input.FiringTriggerId,
+		BlockingTriggerId:            input.BlockingTriggerId,
+		Parameter:                    toAPIParams(input.Parameter),
+		Notes:                        input.Notes,
+		Paused:                       paused,
+		TagFiringOption:              input.TagFiringOption,
+		SetupTag:                     toAPISetupTags(input.SetupTag),
+		TeardownTag:                  toAPITeardownTags(input.TeardownTag),
+		Priority:                     toAPIParam(input.Priority),
+		ParentFolderId:               input.ParentFolderID,
+		ScheduleStartMs:              input.ScheduleStartMs,
+		ScheduleEndMs:                input.ScheduleEndMs,
+		MonitoringMetadata:           toAPIParam(input.MonitoringMetadata),
 		MonitoringMetadataTagNameKey: input.MonitoringMetadataTagNameKey,
-		ConsentSettings:             toAPIConsentSettings(input.ConsentSettings),
+		ConsentSettings:              toAPIConsentSettings(input.ConsentSettings),
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Tags.Create(parent, tag).Context(ctx).Do()
@@ -50,16 +49,12 @@ func (c *Client) CreateTag(ctx context.Context, accountID, containerID, workspac
 	}, nil
 }
 
-// UpdateTag updates an existing tag. It fetches the current tag first to get the fingerprint.
-// Fields not provided in input are preserved from the current tag.
 func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*CreatedTag, error) {
-	// Get current tag for fingerprint and to preserve unset fields
 	current, err := c.Service.Accounts.Containers.Workspaces.Tags.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
 	}
 
-	// Preserve existing fields when not provided in input
 	params := toAPIParams(input.Parameter)
 	if params == nil {
 		params = current.Parameter
@@ -81,8 +76,6 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 		tagFiringOption = current.TagFiringOption
 	}
 
-	// Preserve existing setup/teardown tags when not provided in input.
-	// If ClearSetupTag/ClearTeardownTag is set, explicitly clear them (empty array was passed).
 	setupTags := toAPISetupTags(input.SetupTag)
 	if setupTags == nil && !input.ClearSetupTag {
 		setupTags = current.SetupTag
@@ -92,25 +85,21 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 		teardownTags = current.TeardownTag
 	}
 
-	// Preserve paused state when not explicitly provided
 	paused := current.Paused
 	if input.Paused != nil {
 		paused = *input.Paused
 	}
 
-	// Preserve priority when not provided
 	priority := toAPIParam(input.Priority)
 	if priority == nil {
 		priority = current.Priority
 	}
 
-	// Preserve parentFolderId when not provided
 	parentFolderID := input.ParentFolderID
 	if parentFolderID == "" {
 		parentFolderID = current.ParentFolderId
 	}
 
-	// Preserve schedule fields when not provided
 	scheduleStartMs := input.ScheduleStartMs
 	if scheduleStartMs == 0 {
 		scheduleStartMs = current.ScheduleStartMs
@@ -120,7 +109,6 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 		scheduleEndMs = current.ScheduleEndMs
 	}
 
-	// Preserve monitoring metadata when not provided
 	monitoringMetadata := toAPIParam(input.MonitoringMetadata)
 	if monitoringMetadata == nil {
 		monitoringMetadata = current.MonitoringMetadata
@@ -130,32 +118,30 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 		monitoringMetadataTagNameKey = current.MonitoringMetadataTagNameKey
 	}
 
-	// Preserve consent settings when not provided
 	consentSettings := toAPIConsentSettings(input.ConsentSettings)
 	if consentSettings == nil {
 		consentSettings = current.ConsentSettings
 	}
 
-	// Build updated tag with fingerprint
 	tag := &tagmanager.Tag{
-		Name:                        input.Name,
-		Type:                        input.Type,
-		FiringTriggerId:             firingTriggerIds,
-		BlockingTriggerId:           blockingTriggerIds,
-		Parameter:                   params,
-		Notes:                       notes,
-		Paused:                      paused,
-		TagFiringOption:             tagFiringOption,
-		SetupTag:                    setupTags,
-		TeardownTag:                 teardownTags,
-		Fingerprint:                 current.Fingerprint,
-		Priority:                    priority,
-		ParentFolderId:              parentFolderID,
-		ScheduleStartMs:             scheduleStartMs,
-		ScheduleEndMs:               scheduleEndMs,
-		MonitoringMetadata:          monitoringMetadata,
+		Name:                         input.Name,
+		Type:                         input.Type,
+		FiringTriggerId:              firingTriggerIds,
+		BlockingTriggerId:            blockingTriggerIds,
+		Parameter:                    params,
+		Notes:                        notes,
+		Paused:                       paused,
+		TagFiringOption:              tagFiringOption,
+		SetupTag:                     setupTags,
+		TeardownTag:                  teardownTags,
+		Fingerprint:                  current.Fingerprint,
+		Priority:                     priority,
+		ParentFolderId:               parentFolderID,
+		ScheduleStartMs:              scheduleStartMs,
+		ScheduleEndMs:                scheduleEndMs,
+		MonitoringMetadata:           monitoringMetadata,
 		MonitoringMetadataTagNameKey: monitoringMetadataTagNameKey,
-		ConsentSettings:             consentSettings,
+		ConsentSettings:              consentSettings,
 	}
 
 	result, err := c.Service.Accounts.Containers.Workspaces.Tags.Update(path, tag).Context(ctx).Do()
@@ -172,27 +158,25 @@ func (c *Client) UpdateTag(ctx context.Context, path string, input *TagInput) (*
 	}, nil
 }
 
-// DeleteTag deletes a tag from the workspace.
 func (c *Client) DeleteTag(ctx context.Context, path string) error {
 	err := c.Service.Accounts.Containers.Workspaces.Tags.Delete(path).Context(ctx).Do()
 	return mapGoogleError(err)
 }
 
-// CreateTrigger creates a new trigger in the workspace.
 func (c *Client) CreateTrigger(ctx context.Context, accountID, containerID, workspaceID string, input *TriggerInput) (*CreatedTrigger, error) {
 	parent := BuildWorkspacePath(accountID, containerID, workspaceID)
 
 	trigger := &tagmanager.Trigger{
-		Name:              input.Name,
-		Type:              input.Type,
-		Filter:            toAPIConditions(input.Filter),
-		AutoEventFilter:   toAPIConditions(input.AutoEventFilter),
-		CustomEventFilter: toAPIConditions(input.CustomEventFilter),
-		Parameter:         toAPIParams(input.Parameter),
-		Notes:             input.Notes,
-		ParentFolderId:    input.ParentFolderID,
-		WaitForTags:       toAPIParam(input.WaitForTags),
-		CheckValidation:   toAPIParam(input.CheckValidation),
+		Name:               input.Name,
+		Type:               input.Type,
+		Filter:             toAPIConditions(input.Filter),
+		AutoEventFilter:    toAPIConditions(input.AutoEventFilter),
+		CustomEventFilter:  toAPIConditions(input.CustomEventFilter),
+		Parameter:          toAPIParams(input.Parameter),
+		Notes:              input.Notes,
+		ParentFolderId:     input.ParentFolderID,
+		WaitForTags:        toAPIParam(input.WaitForTags),
+		CheckValidation:    toAPIParam(input.CheckValidation),
 		WaitForTagsTimeout: toAPIParam(input.WaitForTagsTimeout),
 	}
 
@@ -200,7 +184,6 @@ func (c *Client) CreateTrigger(ctx context.Context, accountID, containerID, work
 		trigger.EventName = toAPIParam(input.EventName)
 	}
 
-	// For click/form triggers with autoEventFilter, set required companion fields
 	if len(input.AutoEventFilter) > 0 && (input.Type == "linkClick" || input.Type == "formSubmission" || input.Type == "click") {
 		if trigger.WaitForTags == nil {
 			trigger.WaitForTags = &tagmanager.Parameter{Type: "boolean", Value: "false"}
@@ -227,22 +210,17 @@ func (c *Client) CreateTrigger(ctx context.Context, accountID, containerID, work
 	}, nil
 }
 
-// DeleteTrigger deletes a trigger from the workspace.
 func (c *Client) DeleteTrigger(ctx context.Context, path string) error {
 	err := c.Service.Accounts.Containers.Workspaces.Triggers.Delete(path).Context(ctx).Do()
 	return mapGoogleError(err)
 }
 
-// UpdateTrigger updates an existing trigger. It fetches the current trigger first to get the fingerprint.
-// Fields not provided in input are preserved from the current trigger.
 func (c *Client) UpdateTrigger(ctx context.Context, path string, input *TriggerInput) (*CreatedTrigger, error) {
-	// Get current trigger for fingerprint and to preserve unset fields
 	current, err := c.Service.Accounts.Containers.Workspaces.Triggers.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
 	}
 
-	// Preserve existing fields when not provided in input
 	filter := toAPIConditions(input.Filter)
 	if filter == nil {
 		filter = current.Filter
@@ -260,19 +238,16 @@ func (c *Client) UpdateTrigger(ctx context.Context, path string, input *TriggerI
 		params = current.Parameter
 	}
 
-	// Preserve notes when not provided (BUG FIX: previously notes were silently lost)
 	notes := input.Notes
 	if notes == "" {
 		notes = current.Notes
 	}
 
-	// Preserve parentFolderId when not provided
 	parentFolderID := input.ParentFolderID
 	if parentFolderID == "" {
 		parentFolderID = current.ParentFolderId
 	}
 
-	// Preserve waitForTags/checkValidation/waitForTagsTimeout when not provided
 	waitForTags := toAPIParam(input.WaitForTags)
 	if waitForTags == nil {
 		waitForTags = current.WaitForTags
@@ -287,18 +262,17 @@ func (c *Client) UpdateTrigger(ctx context.Context, path string, input *TriggerI
 	}
 
 	trigger := &tagmanager.Trigger{
-		Name:              input.Name,
-		Type:              input.Type,
-		Filter:            filter,
-		AutoEventFilter:   autoEventFilter,
-		CustomEventFilter: customEventFilter,
-		Parameter:         params,
-		Notes:             notes,
-		ParentFolderId:    parentFolderID,
-		WaitForTags:       waitForTags,
-		CheckValidation:   checkValidation,
-		WaitForTagsTimeout: waitForTagsTimeout,
-		// Preserve trigger-specific fields from current trigger (exclude auto-generated ones)
+		Name:                           input.Name,
+		Type:                           input.Type,
+		Filter:                         filter,
+		AutoEventFilter:                autoEventFilter,
+		CustomEventFilter:              customEventFilter,
+		Parameter:                      params,
+		Notes:                          notes,
+		ParentFolderId:                 parentFolderID,
+		WaitForTags:                    waitForTags,
+		CheckValidation:                checkValidation,
+		WaitForTagsTimeout:             waitForTagsTimeout,
 		ContinuousTimeMinMilliseconds:  current.ContinuousTimeMinMilliseconds,
 		HorizontalScrollPercentageList: current.HorizontalScrollPercentageList,
 		Interval:                       current.Interval,
@@ -312,8 +286,6 @@ func (c *Client) UpdateTrigger(ctx context.Context, path string, input *TriggerI
 		VisiblePercentageMax:           current.VisiblePercentageMax,
 		VisiblePercentageMin:           current.VisiblePercentageMin,
 	}
-	// NOTE: Do NOT include UniqueTriggerId - it's auto-generated during output generation
-	// NOTE: Fingerprint is passed as URL parameter, not in body
 
 	if input.EventName != nil {
 		trigger.EventName = toAPIParam(input.EventName)
@@ -321,8 +293,6 @@ func (c *Client) UpdateTrigger(ctx context.Context, path string, input *TriggerI
 		trigger.EventName = current.EventName
 	}
 
-	// For click/form triggers with autoEventFilter, ensure companion fields have proper boolean values
-	// (not empty template params which indicate "All Clicks" mode)
 	if len(autoEventFilter) > 0 && (input.Type == "linkClick" || input.Type == "formSubmission" || input.Type == "click") {
 		if trigger.WaitForTags == nil || trigger.WaitForTags.Value == "" {
 			trigger.WaitForTags = &tagmanager.Parameter{Type: "boolean", Value: "false"}
@@ -349,7 +319,6 @@ func (c *Client) UpdateTrigger(ctx context.Context, path string, input *TriggerI
 	}, nil
 }
 
-// CreateVariable creates a new variable in the workspace.
 func (c *Client) CreateVariable(ctx context.Context, accountID, containerID, workspaceID string, input *VariableInput) (*CreatedVariable, error) {
 	parent := BuildWorkspacePath(accountID, containerID, workspaceID)
 
@@ -380,16 +349,12 @@ func (c *Client) CreateVariable(ctx context.Context, accountID, containerID, wor
 	}, nil
 }
 
-// UpdateVariable updates an existing variable. It fetches the current variable first to get the fingerprint.
-// Fields not provided in input are preserved from the current variable.
 func (c *Client) UpdateVariable(ctx context.Context, path string, input *VariableInput) (*CreatedVariable, error) {
-	// Get current variable for fingerprint and to preserve unset fields
 	current, err := c.Service.Accounts.Containers.Workspaces.Variables.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
 	}
 
-	// Preserve existing fields when not provided in input
 	params := toAPIParams(input.Parameter)
 	if params == nil {
 		params = current.Parameter
@@ -451,7 +416,6 @@ func (c *Client) UpdateVariable(ctx context.Context, path string, input *Variabl
 	}, nil
 }
 
-// DeleteVariable deletes a variable from the workspace.
 func (c *Client) DeleteVariable(ctx context.Context, path string) error {
 	err := c.Service.Accounts.Containers.Workspaces.Variables.Delete(path).Context(ctx).Do()
 	return mapGoogleError(err)
@@ -538,8 +502,6 @@ func toAPIConditions(conditions []Condition) []*tagmanager.Condition {
 	return result
 }
 
-// triggerForceSendFields returns the list of fields that must be force-sent
-// to the Google API to prevent omitempty from dropping them.
 func triggerForceSendFields(input *TriggerInput) []string {
 	var fields []string
 	if len(input.Filter) > 0 {
@@ -560,7 +522,6 @@ func triggerForceSendFields(input *TriggerInput) []string {
 	return fields
 }
 
-// toAPIConsentSettings converts ConsentSettingInput to API ConsentSetting.
 func toAPIConsentSettings(cs *ConsentSettingInput) *tagmanager.TagConsentSetting {
 	if cs == nil {
 		return nil
@@ -574,58 +535,50 @@ func toAPIConsentSettings(cs *ConsentSettingInput) *tagmanager.TagConsentSetting
 	return result
 }
 
-// toAPIFormatValue converts FormatValueInput to API FormatValue.
 func toAPIFormatValue(fv *FormatValueInput) *tagmanager.VariableFormatValue {
 	if fv == nil {
 		return nil
 	}
 	result := &tagmanager.VariableFormatValue{
-		CaseConversionType:    fv.CaseConversionType,
-		ConvertNullToValue:    toAPIParam(fv.ConvertNullToValue),
+		CaseConversionType:      fv.CaseConversionType,
+		ConvertNullToValue:      toAPIParam(fv.ConvertNullToValue),
 		ConvertUndefinedToValue: toAPIParam(fv.ConvertUndefinedToValue),
-		ConvertTrueToValue:    toAPIParam(fv.ConvertTrueToValue),
-		ConvertFalseToValue:   toAPIParam(fv.ConvertFalseToValue),
+		ConvertTrueToValue:      toAPIParam(fv.ConvertTrueToValue),
+		ConvertFalseToValue:     toAPIParam(fv.ConvertFalseToValue),
 	}
 	return result
 }
 
-// BuildTagPath constructs a tag path from IDs.
 func BuildTagPath(accountID, containerID, workspaceID, tagID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/tags/%s",
 		accountID, containerID, workspaceID, tagID)
 }
 
-// BuildTriggerPath constructs a trigger path from IDs.
 func BuildTriggerPath(accountID, containerID, workspaceID, triggerID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/triggers/%s",
 		accountID, containerID, workspaceID, triggerID)
 }
 
-// BuildVariablePath constructs a variable path from IDs.
 func BuildVariablePath(accountID, containerID, workspaceID, variableID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/variables/%s",
 		accountID, containerID, workspaceID, variableID)
 }
 
-// BuildClientPath constructs a client path from IDs.
 func BuildClientPath(accountID, containerID, workspaceID, clientID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/clients/%s",
 		accountID, containerID, workspaceID, clientID)
 }
 
-// BuildTransformationPath constructs a transformation path from IDs.
 func BuildTransformationPath(accountID, containerID, workspaceID, transformationID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/transformations/%s",
 		accountID, containerID, workspaceID, transformationID)
 }
 
-// BuildEnvironmentPath constructs an environment path from IDs.
 func BuildEnvironmentPath(accountID, containerID, environmentID string) string {
 	return fmt.Sprintf("accounts/%s/containers/%s/environments/%s",
 		accountID, containerID, environmentID)
 }
 
-// BuildUserPermissionPath constructs a user permission path from IDs.
 func BuildUserPermissionPath(accountID, permissionID string) string {
 	return fmt.Sprintf("accounts/%s/permissions/%s", accountID, permissionID)
 }

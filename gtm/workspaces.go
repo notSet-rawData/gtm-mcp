@@ -7,7 +7,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// Workspace is a simplified representation of a GTM workspace.
 type Workspace struct {
 	WorkspaceID string `json:"workspaceId"`
 	Name        string `json:"name"`
@@ -15,7 +14,6 @@ type Workspace struct {
 	Path        string `json:"path"`
 }
 
-// ListWorkspaces returns all workspaces in a container.
 func (c *Client) ListWorkspaces(ctx context.Context, accountID, containerID string) ([]Workspace, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s", accountID, containerID)
 
@@ -42,14 +40,12 @@ func toWorkspaces(workspaces []*tagmanager.Workspace) []Workspace {
 	return result
 }
 
-// SyncStatus represents the result of syncing a workspace.
 type SyncStatus struct {
-	HasConflicts       bool     `json:"hasConflicts"`
-	ConflictCount      int      `json:"conflictCount"`
+	HasConflicts        bool     `json:"hasConflicts"`
+	ConflictCount       int      `json:"conflictCount"`
 	ConflictingEntities []string `json:"conflictingEntities,omitempty"`
 }
 
-// SyncWorkspace syncs a workspace to the latest container version.
 func (c *Client) SyncWorkspace(ctx context.Context, accountID, containerID, workspaceID string) (*SyncStatus, error) {
 	path := BuildWorkspacePath(accountID, containerID, workspaceID)
 
@@ -88,4 +84,13 @@ func (c *Client) SyncWorkspace(ctx context.Context, accountID, containerID, work
 	}
 
 	return status, nil
+}
+
+func (c *Client) DeleteWorkspace(ctx context.Context, accountID, containerID, workspaceID string) error {
+	path := BuildWorkspacePath(accountID, containerID, workspaceID)
+	err := c.Service.Accounts.Containers.Workspaces.Delete(path).Context(ctx).Do()
+	if err != nil {
+		return mapGoogleError(err)
+	}
+	return nil
 }

@@ -86,13 +86,11 @@ func TestValidateAuth(t *testing.T) {
 }
 
 func TestGetEnvInt(t *testing.T) {
-	// Test default value
 	got := getEnvInt("NONEXISTENT_VAR_12345", 42)
 	if got != 42 {
 		t.Fatalf("expected 42, got %d", got)
 	}
 
-	// Test env var set
 	os.Setenv("TEST_PORT_VAR", "3000")
 	defer os.Unsetenv("TEST_PORT_VAR")
 
@@ -101,7 +99,6 @@ func TestGetEnvInt(t *testing.T) {
 		t.Fatalf("expected 3000, got %d", got)
 	}
 
-	// Test invalid env var
 	os.Setenv("TEST_PORT_BAD", "not-a-number")
 	defer os.Unsetenv("TEST_PORT_BAD")
 

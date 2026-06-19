@@ -4,11 +4,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// TemplatesRefToolInput is the unified input for the templates_ref tool.
 type TemplatesRefToolInput struct {
 	Action string `json:"action" jsonschema:"enum:tag_templates,trigger_templates,description:Which template reference to retrieve"`
 }
-
 
 func handleGetTagTemplates() (*mcp.CallToolResult, any, error) {
 	templates := GetTagTemplates()

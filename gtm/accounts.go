@@ -6,14 +6,12 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// Account is a simplified representation of a GTM account.
 type Account struct {
 	AccountID string `json:"accountId"`
 	Name      string `json:"name"`
 	Path      string `json:"path"`
 }
 
-// ListAccounts returns all GTM accounts accessible to the authenticated user.
 func (c *Client) ListAccounts(ctx context.Context) ([]Account, error) {
 	resp, err := retryWithBackoff(ctx, 3, func() (*tagmanager.ListAccountsResponse, error) {
 		return c.Service.Accounts.List().Context(ctx).Do()

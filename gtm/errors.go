@@ -18,15 +18,11 @@ var (
 	ErrInvalidRequest = errors.New("invalid request")
 )
 
-// retryWithBackoff executes fn with exponential backoff for rate limits.
-// Returns the result or final error after maxRetries attempts.
-// maxRetries should be set once at startup via config (not read from env at runtime).
 func retryWithBackoff[T any](ctx context.Context, maxRetries int, fn func() (T, error)) (T, error) {
 	var zero T
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		// Check context before executing
 		select {
 		case <-ctx.Done():
 			return zero, ctx.Err()
@@ -38,7 +34,6 @@ func retryWithBackoff[T any](ctx context.Context, maxRetries int, fn func() (T, 
 			return result, nil
 		}
 
-		// Check if it's a rate limit error
 		var apiErr *googleapi.Error
 		if errors.As(err, &apiErr) {
 			if apiErr.Code == 403 || apiErr.Code == 429 {
@@ -47,8 +42,7 @@ func retryWithBackoff[T any](ctx context.Context, maxRetries int, fn func() (T, 
 					if baseWait > 32*time.Second {
 						baseWait = 32 * time.Second
 					}
-					
-					// Add jitter (up to 25% of baseWait)
+
 					var jitterMs int64
 					if baseWait > 0 {
 						jitterMs = rand.Int63n(int64(baseWait) / 4)
@@ -72,7 +66,6 @@ func retryWithBackoff[T any](ctx context.Context, maxRetries int, fn func() (T, 
 	return zero, fmt.Errorf("max retries exceeded: %w", lastErr)
 }
 
-// formatAPIErrorDetail extracts all available detail from a Google API error.
 func formatAPIErrorDetail(apiErr *googleapi.Error) string {
 	detail := apiErr.Message
 	if len(apiErr.Errors) > 0 {
@@ -86,7 +79,6 @@ func formatAPIErrorDetail(apiErr *googleapi.Error) string {
 	return detail
 }
 
-// mapGoogleError converts Google API errors to our error types.
 func mapGoogleError(err error) error {
 	if err == nil {
 		return nil

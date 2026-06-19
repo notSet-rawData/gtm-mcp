@@ -8,17 +8,14 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// DestinationToolInput is the unified input for the destination tool.
 type DestinationToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,link,description:Operation to perform on destinations"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	// Fields for get/link:
+	Action                           string `json:"action" jsonschema:"enum:list,get,link,description:Operation to perform on destinations"`
+	AccountID                        string `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID                      string `json:"containerId" jsonschema:"description:The GTM container ID"`
 	DestinationID                    string `json:"destinationId,omitempty" jsonschema:"description:Destination ID (required for get and link)"`
 	AllowUserPermissionFeatureUpdate bool   `json:"allowUserPermissionFeatureUpdate,omitempty" jsonschema:"description:If true, allows user permission feature update during linking (optional for link)"`
 }
 
-// DestinationInfo is a simplified destination response.
 type DestinationInfo struct {
 	DestinationID string `json:"destinationId"`
 	Name          string `json:"name,omitempty"`
@@ -40,7 +37,6 @@ type LinkDestinationOutput struct {
 	Destination DestinationInfo `json:"destination"`
 	Message     string          `json:"message"`
 }
-
 
 func handleDestinationList(ctx context.Context, input DestinationToolInput) (*mcp.CallToolResult, any, error) {
 	client, err := getClient(ctx)

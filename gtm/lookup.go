@@ -1,15 +1,11 @@
 package gtm
 
-// LookupEntry is a simplified representation of a regex/lookup table entry.
-// This provides a flat, user-friendly interface over the deeply nested GTM Parameter structure.
 type LookupEntry struct {
 	Pattern string            `json:"pattern"`
 	Output  string            `json:"output"`
 	Extra   map[string]string `json:"extra,omitempty"` // Additional map fields (e.g. inputsTable keys)
 }
 
-// findRegexTable locates the "regexTable" parameter within a Parameter slice.
-// Returns the index and the list entries. Returns -1 and nil if not found.
 func findRegexTable(params []Parameter) (int, []Parameter) {
 	for i, p := range params {
 		if p.Key == "regexTable" && p.Type == "list" {
@@ -19,8 +15,6 @@ func findRegexTable(params []Parameter) (int, []Parameter) {
 	return -1, nil
 }
 
-// parseRegexEntry converts a single map-type Parameter entry from a regex table
-// into a flat LookupEntry struct.
 func parseRegexEntry(entry Parameter) LookupEntry {
 	le := LookupEntry{
 		Extra: make(map[string]string),
@@ -41,15 +35,11 @@ func parseRegexEntry(entry Parameter) LookupEntry {
 	return le
 }
 
-// buildRegexEntry converts a LookupEntry back into a map-type Parameter entry.
-// existingKeys preserves the ordering and extra keys found in the existing table,
-// ensuring new entries have the same structure as existing ones.
 func buildRegexEntry(entry LookupEntry, existingKeys []string) Parameter {
 	p := Parameter{
 		Type: "map",
 	}
 
-	// If we have a key ordering from existing entries, use it
 	if len(existingKeys) > 0 {
 		keySet := make(map[string]bool)
 		for _, k := range existingKeys {
@@ -71,7 +61,6 @@ func buildRegexEntry(entry LookupEntry, existingKeys []string) Parameter {
 				Value: value,
 			})
 		}
-		// Add any extra keys not already covered
 		if entry.Extra != nil {
 			for k, v := range entry.Extra {
 				if !keySet[k] {
@@ -84,7 +73,6 @@ func buildRegexEntry(entry LookupEntry, existingKeys []string) Parameter {
 			}
 		}
 	} else {
-		// No existing structure — build minimal entry
 		p.Map = append(p.Map, Parameter{
 			Type:  "template",
 			Key:   "pattern",
@@ -109,8 +97,6 @@ func buildRegexEntry(entry LookupEntry, existingKeys []string) Parameter {
 	return p
 }
 
-// extractExistingKeys returns the ordered list of map keys from the first entry
-// of a regex table. This is used to preserve field ordering when building new entries.
 func extractExistingKeys(entries []Parameter) []string {
 	if len(entries) == 0 {
 		return nil
@@ -122,21 +108,16 @@ func extractExistingKeys(entries []Parameter) []string {
 	return keys
 }
 
-// mergeEntries adds new entries to an existing regex table, detecting duplicates by pattern.
-// Returns: entries that were added, entries that were duplicates, and the full merged list.
 func mergeEntries(existing []Parameter, newEntries []LookupEntry) (added []LookupEntry, duplicates []LookupEntry, merged []Parameter) {
-	// Build a set of existing patterns for O(1) lookup
 	existingPatterns := make(map[string]bool, len(existing))
 	for _, entry := range existing {
 		le := parseRegexEntry(entry)
 		existingPatterns[le.Pattern] = true
 	}
 
-	// Start with all existing entries
 	merged = make([]Parameter, len(existing))
 	copy(merged, existing)
 
-	// Get key ordering from existing entries
 	existingKeys := extractExistingKeys(existing)
 
 	for _, newEntry := range newEntries {
@@ -152,8 +133,6 @@ func mergeEntries(existing []Parameter, newEntries []LookupEntry) (added []Looku
 	return added, duplicates, merged
 }
 
-// removeEntries removes entries from a regex table by matching patterns.
-// Returns: entries that were removed and the remaining list.
 func removeEntries(existing []Parameter, patterns []string) (removed []LookupEntry, remaining []Parameter) {
 	patternSet := make(map[string]bool, len(patterns))
 	for _, p := range patterns {

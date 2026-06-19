@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-// Helper to build a regex table parameter with entries
 func buildTestRegexTable(entries ...[]struct{ key, value string }) Parameter {
 	p := Parameter{
 		Type: "list",
@@ -115,7 +114,6 @@ func TestBuildRegexEntry(t *testing.T) {
 		t.Fatalf("expected 3 map fields, got %d", len(p.Map))
 	}
 
-	// Verify key ordering matches existing
 	if p.Map[0].Key != "pattern" || p.Map[0].Value != "^new$" {
 		t.Fatalf("first field should be pattern=^new$, got %s=%s", p.Map[0].Key, p.Map[0].Value)
 	}
@@ -202,8 +200,8 @@ func TestMergeEntries_WithDuplicates(t *testing.T) {
 	}
 
 	newEntries := []LookupEntry{
-		{Pattern: "^existing$", Output: "newval"},  // duplicate
-		{Pattern: "^fresh$", Output: "freshval"},    // new
+		{Pattern: "^existing$", Output: "newval"}, // duplicate
+		{Pattern: "^fresh$", Output: "freshval"},  // new
 	}
 
 	added, duplicates, merged := mergeEntries(existing, newEntries)
@@ -291,7 +289,6 @@ func TestRemoveEntries_PatternNotFound(t *testing.T) {
 }
 
 func TestRoundTrip_ParseBuild(t *testing.T) {
-	// Verify that parse → build preserves data
 	original := Parameter{
 		Type: "map",
 		Map: []Parameter{

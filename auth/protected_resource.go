@@ -6,17 +6,13 @@ import (
 	"net/url"
 )
 
-// ProtectedResourceMetadata represents RFC 9728 OAuth 2.0 Protected Resource Metadata
 type ProtectedResourceMetadata struct {
-	Resource                 string   `json:"resource"`
-	AuthorizationServers     []string `json:"authorization_servers"`
-	ScopesSupported          []string `json:"scopes_supported,omitempty"`
-	BearerMethodsSupported   []string `json:"bearer_methods_supported"`
+	Resource               string   `json:"resource"`
+	AuthorizationServers   []string `json:"authorization_servers"`
+	ScopesSupported        []string `json:"scopes_supported,omitempty"`
+	BearerMethodsSupported []string `json:"bearer_methods_supported"`
 }
 
-// NewProtectedResourceMetadata creates metadata for the protected resource.
-// The resource identifier is normalized per RFC 9728: root URLs get a trailing
-// slash to match what clients (e.g. Gemini CLI) compute via new URL(serverUrl).pathname.
 func NewProtectedResourceMetadata(baseURL, resourceURL string) *ProtectedResourceMetadata {
 	return &ProtectedResourceMetadata{
 		Resource:               normalizeResourceURL(resourceURL),
@@ -26,10 +22,6 @@ func NewProtectedResourceMetadata(baseURL, resourceURL string) *ProtectedResourc
 	}
 }
 
-// normalizeResourceURL ensures the resource identifier has a path component.
-// Per RFC 9728, clients like Gemini CLI construct the expected resource as
-// scheme + "://" + host + pathname, where pathname is "/" for root URLs.
-// Without this, "https://example.com" != "https://example.com/" causes a mismatch.
 func normalizeResourceURL(rawURL string) string {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
@@ -41,11 +33,7 @@ func normalizeResourceURL(rawURL string) string {
 	return parsed.String()
 }
 
-// ProtectedResourceMetadataHandler returns HTTP handler for /.well-known/oauth-protected-resource.
-// If resolver is non-nil, the base URL is resolved dynamically per-request
-// (validated against allowed hosts). Otherwise, baseURL/resourceURL are used statically.
 func ProtectedResourceMetadataHandler(baseURL, resourceURL string, resolver *URLResolver) http.HandlerFunc {
-	// Pre-compute for the static case
 	staticMetadata := NewProtectedResourceMetadata(baseURL, resourceURL)
 
 	return func(w http.ResponseWriter, r *http.Request) {

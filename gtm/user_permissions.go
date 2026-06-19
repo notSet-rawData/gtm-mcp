@@ -8,7 +8,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// ListUserPermissions returns all user permissions for an account.
 func (c *Client) ListUserPermissions(ctx context.Context, accountID string) ([]UserPermission, error) {
 	parent := fmt.Sprintf("accounts/%s", accountID)
 
@@ -25,7 +24,6 @@ func (c *Client) ListUserPermissions(ctx context.Context, accountID string) ([]U
 	return toUserPermissions(resp.UserPermission), nil
 }
 
-// GetUserPermission returns a specific user permission by ID.
 func (c *Client) GetUserPermission(ctx context.Context, accountID, permissionID string) (*UserPermission, error) {
 	path := BuildUserPermissionPath(accountID, permissionID)
 
@@ -40,7 +38,6 @@ func (c *Client) GetUserPermission(ctx context.Context, accountID, permissionID 
 	return &result, nil
 }
 
-// CreateUserPermission creates a new user permission for an account.
 func (c *Client) CreateUserPermission(ctx context.Context, accountID string, input *UserPermissionInput) (*UserPermission, error) {
 	parent := fmt.Sprintf("accounts/%s", accountID)
 
@@ -59,7 +56,6 @@ func (c *Client) CreateUserPermission(ctx context.Context, accountID string, inp
 	return &r, nil
 }
 
-// UpdateUserPermission updates an existing user permission.
 func (c *Client) UpdateUserPermission(ctx context.Context, path string, input *UserPermissionInput) (*UserPermission, error) {
 	perm := &tagmanager.UserPermission{
 		EmailAddress:    input.EmailAddress,
@@ -76,7 +72,6 @@ func (c *Client) UpdateUserPermission(ctx context.Context, path string, input *U
 	return &r, nil
 }
 
-// DeleteUserPermission deletes a user permission from an account.
 func (c *Client) DeleteUserPermission(ctx context.Context, path string) error {
 	err := c.Service.Accounts.UserPermissions.Delete(path).Context(ctx).Do()
 	return mapGoogleError(err)
@@ -91,7 +86,6 @@ func toUserPermissions(perms []*tagmanager.UserPermission) []UserPermission {
 }
 
 func toUserPermission(p *tagmanager.UserPermission) UserPermission {
-	// Extract permission ID from path (e.g. "accounts/123/permissions/456" → "456")
 	permID := ""
 	if parts := strings.Split(p.Path, "/"); len(parts) >= 4 {
 		permID = parts[len(parts)-1]

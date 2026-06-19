@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"gtm-mcp-server/auth"
 	"golang.org/x/oauth2"
+	"gtm-mcp-server/auth"
 
 	_ "modernc.org/sqlite"
 )
@@ -19,9 +19,6 @@ type SQLiteTokenStore struct {
 	cancel        context.CancelFunc
 }
 
-// NewSQLiteTokenStore creates a new SQLite token store with encryption.
-// The encryptionKey should be 32 bytes (use auth.DeriveKey to generate from a secret).
-// If encryptionKey is nil, tokens are stored in plaintext (not recommended for production).
 func NewSQLiteTokenStore(dbPath string, encryptionKey []byte) (*SQLiteTokenStore, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -45,7 +42,6 @@ func NewSQLiteTokenStore(dbPath string, encryptionKey []byte) (*SQLiteTokenStore
 }
 
 func initSchema(db *sql.DB) error {
-	// Enable WAL mode for better concurrent read/write performance
 	pragmas := []string{
 		`PRAGMA journal_mode=WAL`,
 		`PRAGMA busy_timeout=5000`,
@@ -66,7 +62,7 @@ func initSchema(db *sql.DB) error {
 			refresh_expires_at DATETIME
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_tokens_refresh ON tokens(refresh_token)`,
-		
+
 		`CREATE TABLE IF NOT EXISTS states (
 			state_value TEXT PRIMARY KEY,
 			created_at DATETIME,
@@ -80,7 +76,7 @@ func initSchema(db *sql.DB) error {
 			info TEXT
 		)`,
 	}
-	
+
 	for _, q := range queries {
 		if _, err := db.Exec(q); err != nil {
 			return err
@@ -94,7 +90,6 @@ func (s *SQLiteTokenStore) Close() error {
 	return s.db.Close()
 }
 
-// encrypt wraps auth.Encrypt if a key is configured, otherwise returns plaintext.
 func (s *SQLiteTokenStore) encrypt(plaintext string) (string, error) {
 	if s.encryptionKey == nil {
 		return plaintext, nil
@@ -102,7 +97,6 @@ func (s *SQLiteTokenStore) encrypt(plaintext string) (string, error) {
 	return auth.Encrypt(plaintext, s.encryptionKey)
 }
 
-// decrypt wraps auth.Decrypt if a key is configured, otherwise returns as-is.
 func (s *SQLiteTokenStore) decrypt(ciphertext string) (string, error) {
 	if s.encryptionKey == nil {
 		return ciphertext, nil
@@ -116,14 +110,13 @@ func (s *SQLiteTokenStore) StoreToken(info *auth.TokenInfo) error {
 		return err
 	}
 
-	// Encrypt the token info before storing
 	encrypted, err := s.encrypt(string(b))
 	if err != nil {
 		return err
 	}
-	
+
 	refreshExpiresAt := sql.NullTime{Time: info.RefreshExpiresAt, Valid: !info.RefreshExpiresAt.IsZero()}
-	
+
 	_, err = s.db.Exec(`
 		INSERT INTO tokens (access_token, refresh_token, info, expires_at, refresh_expires_at)
 		VALUES (?, ?, ?, ?, ?)
@@ -150,7 +143,6 @@ func (s *SQLiteTokenStore) GetTokenByAccess(accessToken string) (*auth.TokenInfo
 		return nil, auth.ErrTokenExpired
 	}
 
-	// Decrypt the token info
 	decrypted, err := s.decrypt(infoStr)
 	if err != nil {
 		return nil, err
@@ -215,8 +207,6 @@ func (s *SQLiteTokenStore) DeleteToken(accessToken string) error {
 	return err
 }
 
-// RotateToken atomically replaces an old token with a new one using a SQL transaction.
-// Inserts the new token first, then deletes the old one — prevents data loss on crash.
 func (s *SQLiteTokenStore) RotateToken(oldAccessToken string, newToken *auth.TokenInfo) error {
 	b, err := json.Marshal(newToken)
 	if err != nil {
@@ -236,7 +226,6 @@ func (s *SQLiteTokenStore) RotateToken(oldAccessToken string, newToken *auth.Tok
 	}
 	defer tx.Rollback() // no-op if committed
 
-	// Insert new token first
 	_, err = tx.Exec(`
 		INSERT INTO tokens (access_token, refresh_token, info, expires_at, refresh_expires_at)
 		VALUES (?, ?, ?, ?, ?)
@@ -250,7 +239,6 @@ func (s *SQLiteTokenStore) RotateToken(oldAccessToken string, newToken *auth.Tok
 		return fmt.Errorf("failed to store new token: %w", err)
 	}
 
-	// Then delete old token
 	_, err = tx.Exec(`DELETE FROM tokens WHERE access_token = ?`, oldAccessToken)
 	if err != nil {
 		return fmt.Errorf("failed to delete old token: %w", err)
@@ -386,15 +374,12 @@ func (s *SQLiteTokenStore) cleanup(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			// Delete old tokens
 			s.db.Exec(`DELETE FROM tokens WHERE 
 				expires_at < datetime('now', '-1 hours') AND 
 				(refresh_expires_at IS NULL OR refresh_expires_at < datetime('now'))`)
-			
-			// Delete old states
+
 			s.db.Exec(`DELETE FROM states WHERE created_at < datetime('now', '-10 minutes')`)
-			
-			// Evict old clients if > 1000
+
 			s.db.Exec(`
 				DELETE FROM clients WHERE client_id NOT IN (
 					SELECT client_id FROM clients ORDER BY created_at DESC LIMIT 1000

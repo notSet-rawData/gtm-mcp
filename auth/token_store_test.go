@@ -98,13 +98,11 @@ func TestGetTokenByAccessIncludeExpired(t *testing.T) {
 		t.Fatalf("StoreToken failed: %v", err)
 	}
 
-	// Regular GetTokenByAccess should return ErrTokenExpired
 	_, err = store.GetTokenByAccess("expired-token")
 	if err != ErrTokenExpired {
 		t.Errorf("expected ErrTokenExpired, got %v", err)
 	}
 
-	// GetTokenByAccessIncludeExpired should return the token
 	retrieved, err := store.GetTokenByAccessIncludeExpired("expired-token")
 	if err != nil {
 		t.Fatalf("GetTokenByAccessIncludeExpired failed: %v", err)
@@ -252,13 +250,11 @@ func TestMemoryTokenStore_DeleteToken(t *testing.T) {
 		t.Fatalf("DeleteToken failed: %v", err)
 	}
 
-	// Verify token is deleted
 	_, err = store.GetTokenByAccess("test-access")
 	if err != ErrTokenNotFound {
 		t.Errorf("expected ErrTokenNotFound after deletion, got %v", err)
 	}
 
-	// Verify refresh index is also cleaned up
 	_, err = store.GetTokenByRefresh("test-refresh")
 	if err != ErrTokenNotFound {
 		t.Errorf("expected ErrTokenNotFound for refresh token after deletion, got %v", err)
@@ -269,7 +265,6 @@ func TestMemoryTokenStore_DeleteToken_NotFound(t *testing.T) {
 	store := NewMemoryTokenStore()
 	defer store.Close()
 
-	// Should not error when deleting non-existent token
 	err := store.DeleteToken("nonexistent")
 	if err != nil {
 		t.Errorf("expected no error when deleting nonexistent token, got %v", err)
@@ -370,13 +365,13 @@ func TestMemoryTokenStore_StoreAndGetClient(t *testing.T) {
 	defer store.Close()
 
 	clientInfo := &ClientInfo{
-		ClientID:     "test-client-id",
-		RedirectURIs: []string{"https://example.com/callback"},
-		ClientName:   "Test Client",
-		GrantTypes:   []string{"authorization_code", "refresh_token"},
-		ResponseTypes: []string{"code"},
+		ClientID:                "test-client-id",
+		RedirectURIs:            []string{"https://example.com/callback"},
+		ClientName:              "Test Client",
+		GrantTypes:              []string{"authorization_code", "refresh_token"},
+		ResponseTypes:           []string{"code"},
 		TokenEndpointAuthMethod: "none",
-		CreatedAt:    time.Now(),
+		CreatedAt:               time.Now(),
 	}
 
 	err := store.StoreClient(clientInfo)
@@ -445,7 +440,6 @@ func TestMemoryTokenStore_ConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 
-	// Test concurrent token operations
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
@@ -454,7 +448,6 @@ func TestMemoryTokenStore_ConcurrentAccess(t *testing.T) {
 				accessToken := "token-" + string(rune(id)) + "-" + string(rune(j))
 				refreshToken := "refresh-" + string(rune(id)) + "-" + string(rune(j))
 
-				// Store token
 				tokenInfo := &TokenInfo{
 					AccessToken:  accessToken,
 					RefreshToken: refreshToken,
@@ -463,18 +456,14 @@ func TestMemoryTokenStore_ConcurrentAccess(t *testing.T) {
 				}
 				store.StoreToken(tokenInfo)
 
-				// Get by access token
 				_, _ = store.GetTokenByAccess(accessToken)
 
-				// Get by refresh token
 				_, _ = store.GetTokenByRefresh(refreshToken)
 
-				// Update Google token
 				_ = store.UpdateGoogleToken(accessToken, &oauth2.Token{
 					AccessToken: "google-" + accessToken,
 				})
 
-				// Delete token
 				_ = store.DeleteToken(accessToken)
 			}
 		}(i)
@@ -571,12 +560,10 @@ func TestGenerateToken(t *testing.T) {
 				t.Fatalf("GenerateToken failed: %v", err)
 			}
 
-			// Tokens should be different
 			if token1 == token2 {
 				t.Error("expected different tokens, got identical")
 			}
 
-			// Tokens should not be empty
 			if token1 == "" || token2 == "" {
 				t.Error("expected non-empty tokens")
 			}
@@ -588,12 +575,11 @@ func TestMemoryTokenStore_TokenWithoutRefreshToken(t *testing.T) {
 	store := NewMemoryTokenStore()
 	defer store.Close()
 
-	// Test storing a token without a refresh token
 	tokenInfo := &TokenInfo{
-		AccessToken: "access-only-token",
+		AccessToken:  "access-only-token",
 		RefreshToken: "", // No refresh token
-		ExpiresAt:   time.Now().Add(1 * time.Hour),
-		CreatedAt:   time.Now(),
+		ExpiresAt:    time.Now().Add(1 * time.Hour),
+		CreatedAt:    time.Now(),
 	}
 
 	err := store.StoreToken(tokenInfo)
@@ -601,7 +587,6 @@ func TestMemoryTokenStore_TokenWithoutRefreshToken(t *testing.T) {
 		t.Fatalf("StoreToken failed: %v", err)
 	}
 
-	// Should be able to get by access token
 	retrieved, err := store.GetTokenByAccess("access-only-token")
 	if err != nil {
 		t.Fatalf("GetTokenByAccess failed: %v", err)
@@ -611,7 +596,6 @@ func TestMemoryTokenStore_TokenWithoutRefreshToken(t *testing.T) {
 		t.Errorf("expected access token %q, got %q", "access-only-token", retrieved.AccessToken)
 	}
 
-	// Deleting should not cause issues
 	err = store.DeleteToken("access-only-token")
 	if err != nil {
 		t.Fatalf("DeleteToken failed: %v", err)

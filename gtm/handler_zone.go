@@ -9,23 +9,19 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// ZoneToolInput is the unified input for the zone tool.
 type ZoneToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,update,delete,revert,description:Operation to perform on zones"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	WorkspaceID string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
-	// Fields for get/update/delete/revert:
-	ZoneID string `json:"zoneId,omitempty" jsonschema:"description:Zone ID (required for get, update, delete, revert)"`
-	// Fields for create/update:
-	Name           string `json:"name,omitempty" jsonschema:"description:Zone name (required for create/update)"`
-	ChildContainer string `json:"childContainerJson,omitempty" jsonschema:"description:Child containers as JSON array (optional)"`
-	BoundaryJSON   string `json:"boundaryJson,omitempty" jsonschema:"description:Zone boundary conditions as JSON array (optional)"`
+	Action          string `json:"action" jsonschema:"enum:list,get,create,update,delete,revert,description:Operation to perform on zones"`
+	AccountID       string `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID     string `json:"containerId" jsonschema:"description:The GTM container ID"`
+	WorkspaceID     string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
+	ZoneID          string `json:"zoneId,omitempty" jsonschema:"description:Zone ID (required for get, update, delete, revert)"`
+	Name            string `json:"name,omitempty" jsonschema:"description:Zone name (required for create/update)"`
+	ChildContainer  string `json:"childContainerJson,omitempty" jsonschema:"description:Child containers as JSON array (optional)"`
+	BoundaryJSON    string `json:"boundaryJson,omitempty" jsonschema:"description:Zone boundary conditions as JSON array (optional)"`
 	TypeRestriction string `json:"typeRestrictionJson,omitempty" jsonschema:"description:Type restriction as JSON object (optional)"`
-	Notes          string `json:"notes,omitempty" jsonschema:"description:Zone notes (optional)"`
-	// Fields for delete:
-	Confirm     bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
-	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
+	Notes           string `json:"notes,omitempty" jsonschema:"description:Zone notes (optional)"`
+	Confirm         bool   `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Fingerprint     string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
 }
 
 type ZoneInfo struct {
@@ -61,7 +57,6 @@ type DeleteZoneOutput struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
-
 
 func handleZoneList(ctx context.Context, input ZoneToolInput) (*mcp.CallToolResult, any, error) {
 	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)

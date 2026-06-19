@@ -8,26 +8,21 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ClientToolInput is the unified input for the client tool (server-side containers).
 type ClientToolInput struct {
-	Action      string `json:"action" jsonschema:"enum:list,get,create,update,delete,revert,description:Operation to perform on clients"`
-	AccountID   string `json:"accountId" jsonschema:"description:The GTM account ID"`
-	ContainerID string `json:"containerId" jsonschema:"description:The GTM container ID"`
-	WorkspaceID string `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
-	// Fields for get/update/delete:
-	ClientID string `json:"clientId,omitempty" jsonschema:"description:Client ID (required for get, update, delete)"`
-	// Fields for create/update:
-	Name           string `json:"name,omitempty" jsonschema:"description:Client name (required for create/update)"`
-	Type           string `json:"type,omitempty" jsonschema:"description:Client type e.g. __ga4 (GA4), __googtag (Google tag) (required for create/update)"`
-	Priority       int64  `json:"priority,omitempty" jsonschema:"description:Client priority (optional, higher runs first)"`
+	Action         string      `json:"action" jsonschema:"enum:list,get,create,update,delete,revert,description:Operation to perform on clients"`
+	AccountID      string      `json:"accountId" jsonschema:"description:The GTM account ID"`
+	ContainerID    string      `json:"containerId" jsonschema:"description:The GTM container ID"`
+	WorkspaceID    string      `json:"workspaceId" jsonschema:"description:The GTM workspace ID"`
+	ClientID       string      `json:"clientId,omitempty" jsonschema:"description:Client ID (required for get, update, delete)"`
+	Name           string      `json:"name,omitempty" jsonschema:"description:Client name (required for create/update)"`
+	Type           string      `json:"type,omitempty" jsonschema:"description:Client type e.g. __ga4 (GA4), __googtag (Google tag) (required for create/update)"`
+	Priority       int64       `json:"priority,omitempty" jsonschema:"description:Client priority (optional, higher runs first)"`
 	Parameter      []Parameter `json:"parameter,omitempty" jsonschema:"description:Client parameters as array of objects. Each: {type, key, value}."`
 	ParametersJSON string      `json:"parametersJson,omitempty" jsonschema:"description:DEPRECATED: Client parameters as JSON string. Use parameter array instead."`
-	Notes          string `json:"notes,omitempty" jsonschema:"description:Client notes (optional)"`
-	// Fields for delete:
-	Confirm bool `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
-	Fingerprint string `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
+	Notes          string      `json:"notes,omitempty" jsonschema:"description:Client notes (optional)"`
+	Confirm        bool        `json:"confirm,omitempty" jsonschema:"description:Must be true for delete (safety guard)"`
+	Fingerprint    string      `json:"fingerprint,omitempty" jsonschema:"description:Fingerprint for optimistic concurrency control (optional for revert)"`
 }
-
 
 func handleClientList(ctx context.Context, input ClientToolInput) (*mcp.CallToolResult, any, error) {
 	wc, err := resolveWorkspace(ctx, input.AccountID, input.ContainerID, input.WorkspaceID)

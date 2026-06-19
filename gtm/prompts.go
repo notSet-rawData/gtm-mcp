@@ -4,16 +4,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// RegisterPrompts adds all GTM prompts to the MCP server.
-// Handlers are organized by "Job To Be Done" (JTBD):
-//   - prompts_audit.go  → "Is my container healthy?"  (10 handlers)
-//   - prompts_plan.go   → "What should I do / organize?" (10 handlers)
-//   - prompts_debug.go  → "Why doesn't it work / it broke" (8 handlers)
 func RegisterPrompts(server *mcp.Server) {
-
-	// =========================================================================
-	// AUDIT — "¿Mi container está bien?"
-	// =========================================================================
 
 	server.AddPrompt(&mcp.Prompt{
 		Name:        "audit_container",
@@ -116,10 +107,6 @@ func RegisterPrompts(server *mcp.Server) {
 		},
 	}, handleAuditSGTMClientPriorityPrompt)
 
-	// =========================================================================
-	// PLAN — "¿Qué hago / cómo organizo?"
-	// =========================================================================
-
 	server.AddPrompt(&mcp.Prompt{
 		Name:        "generate_tracking_plan",
 		Description: "Generate a Markdown tracking plan document from existing tags, triggers, and variables in a workspace",
@@ -217,10 +204,6 @@ func RegisterPrompts(server *mcp.Server) {
 		},
 	}, handlePlanSGTMConsentArchitecturePrompt)
 
-	// =========================================================================
-	// DEBUG — "¿Por qué no funciona? / Se rompió algo"
-	// =========================================================================
-
 	server.AddPrompt(&mcp.Prompt{
 		Name:        "debug_trigger_coverage",
 		Description: "Analyze which pages/events may not be covered by any trigger, and which triggers have conditions so restrictive they probably never fire",
@@ -307,4 +290,3 @@ func RegisterPrompts(server *mcp.Server) {
 		},
 	}, handleDebugSGTMTagResponsePrompt)
 }
-

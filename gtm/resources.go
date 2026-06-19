@@ -9,7 +9,6 @@ import (
 	"github.com/yosida95/uritemplate/v3"
 )
 
-// URI template patterns for GTM resources
 const (
 	uriAccounts   = "gtm://accounts"
 	uriContainers = "gtm://accounts/{accountId}/containers"
@@ -19,7 +18,6 @@ const (
 	uriVariables  = "gtm://accounts/{accountId}/containers/{containerId}/workspaces/{workspaceId}/variables"
 )
 
-// Compiled URI templates for extracting parameters
 var (
 	tmplContainers = uritemplate.MustNew(uriContainers)
 	tmplWorkspaces = uritemplate.MustNew(uriWorkspaces)
@@ -28,9 +26,7 @@ var (
 	tmplVariables  = uritemplate.MustNew(uriVariables)
 )
 
-// RegisterResources adds all GTM resource templates to the MCP server.
 func RegisterResources(server *mcp.Server) {
-	// gtm://accounts - list all accounts
 	server.AddResource(&mcp.Resource{
 		Name:        "GTM Accounts",
 		Description: "List of all Google Tag Manager accounts accessible to the authenticated user",
@@ -38,7 +34,6 @@ func RegisterResources(server *mcp.Server) {
 		URI:         uriAccounts,
 	}, handleAccountsResource)
 
-	// gtm://accounts/{accountId}/containers - list containers in account
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "GTM Containers",
 		Description: "List of containers in a GTM account",
@@ -46,7 +41,6 @@ func RegisterResources(server *mcp.Server) {
 		URITemplate: uriContainers,
 	}, handleContainersResource)
 
-	// gtm://accounts/{accountId}/containers/{containerId}/workspaces
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "GTM Workspaces",
 		Description: "List of workspaces in a GTM container",
@@ -54,7 +48,6 @@ func RegisterResources(server *mcp.Server) {
 		URITemplate: uriWorkspaces,
 	}, handleWorkspacesResource)
 
-	// gtm://accounts/{accountId}/containers/{containerId}/workspaces/{workspaceId}/tags
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "GTM Tags",
 		Description: "List of all tags in a GTM workspace",
@@ -62,7 +55,6 @@ func RegisterResources(server *mcp.Server) {
 		URITemplate: uriTags,
 	}, handleTagsResource)
 
-	// gtm://accounts/{accountId}/containers/{containerId}/workspaces/{workspaceId}/triggers
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "GTM Triggers",
 		Description: "List of all triggers in a GTM workspace",
@@ -70,7 +62,6 @@ func RegisterResources(server *mcp.Server) {
 		URITemplate: uriTriggers,
 	}, handleTriggersResource)
 
-	// gtm://accounts/{accountId}/containers/{containerId}/workspaces/{workspaceId}/variables
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "GTM Variables",
 		Description: "List of all variables in a GTM workspace",
@@ -107,7 +98,6 @@ func handleAccountsResource(ctx context.Context, req *mcp.ReadResourceRequest) (
 }
 
 func handleContainersResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	// Extract accountId from URI using regex
 	match := tmplContainers.Regexp().FindStringSubmatch(req.Params.URI)
 	if len(match) < 2 {
 		return nil, fmt.Errorf("invalid URI: could not extract accountId")

@@ -7,7 +7,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// Variable is a simplified representation of a GTM variable.
 type Variable struct {
 	VariableID         string   `json:"variableId"`
 	Name               string   `json:"name"`
@@ -21,11 +20,9 @@ type Variable struct {
 	EnablingTriggerId  []string `json:"enablingTriggerId,omitempty"`
 	DisablingTriggerId []string `json:"disablingTriggerId,omitempty"`
 	FormatValue        any      `json:"formatValue,omitempty"`
-	// Parameter contains variable configuration (lookup tables, JavaScript code, data layer variable names, etc.).
-	Parameter any `json:"parameter,omitempty"`
+	Parameter          any      `json:"parameter,omitempty"`
 }
 
-// ListVariables returns all variables in a workspace.
 func (c *Client) ListVariables(ctx context.Context, accountID, containerID, workspaceID string) ([]Variable, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s", accountID, containerID, workspaceID)
 
@@ -39,7 +36,6 @@ func (c *Client) ListVariables(ctx context.Context, accountID, containerID, work
 	return toVariables(resp.Variable), nil
 }
 
-// GetVariable returns a specific variable by ID.
 func (c *Client) GetVariable(ctx context.Context, accountID, containerID, workspaceID, variableID string) (*Variable, error) {
 	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/variables/%s",
 		accountID, containerID, workspaceID, variableID)

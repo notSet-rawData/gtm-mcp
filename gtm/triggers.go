@@ -7,7 +7,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// Trigger is a simplified representation of a GTM trigger.
 type Trigger struct {
 	TriggerID          string `json:"triggerId"`
 	Name               string `json:"name"`
@@ -24,12 +23,9 @@ type Trigger struct {
 	Filter             any    `json:"filter,omitempty"`            // For pageview triggers
 	AutoEventFilter    any    `json:"autoEventFilter,omitempty"`   // For click/form triggers
 	CustomEventFilter  any    `json:"customEventFilter,omitempty"` // For customEvent triggers
-	// Parameter contains trigger configuration. For triggerGroup type, includes member trigger IDs.
-	// Using any to avoid recursive type cycle in schema generation.
-	Parameter any `json:"parameter,omitempty"`
+	Parameter          any    `json:"parameter,omitempty"`
 }
 
-// ListTriggers returns all triggers in a workspace.
 func (c *Client) ListTriggers(ctx context.Context, accountID, containerID, workspaceID string) ([]Trigger, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s", accountID, containerID, workspaceID)
 
@@ -43,7 +39,6 @@ func (c *Client) ListTriggers(ctx context.Context, accountID, containerID, works
 	return toTriggers(resp.Trigger), nil
 }
 
-// GetTrigger returns a specific trigger by ID.
 func (c *Client) GetTrigger(ctx context.Context, accountID, containerID, workspaceID, triggerID string) (*Trigger, error) {
 	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/triggers/%s",
 		accountID, containerID, workspaceID, triggerID)
@@ -71,7 +66,6 @@ func toTriggers(triggers []*tagmanager.Trigger) []Trigger {
 			Notes:          t.Notes,
 			Fingerprint:    t.Fingerprint,
 		}
-		// Include typed parameter fields when present
 		if t.EventName != nil {
 			trigger.EventName = t.EventName
 		}
@@ -87,7 +81,6 @@ func toTriggers(triggers []*tagmanager.Trigger) []Trigger {
 		if t.UniqueTriggerId != nil {
 			trigger.UniqueTriggerId = t.UniqueTriggerId
 		}
-		// Include filter fields when present
 		if len(t.Filter) > 0 {
 			trigger.Filter = t.Filter
 		}
@@ -97,7 +90,6 @@ func toTriggers(triggers []*tagmanager.Trigger) []Trigger {
 		if len(t.CustomEventFilter) > 0 {
 			trigger.CustomEventFilter = t.CustomEventFilter
 		}
-		// Include parameters for triggerGroup type or when parameters exist
 		if len(t.Parameter) > 0 {
 			trigger.Parameter = t.Parameter
 		}

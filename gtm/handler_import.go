@@ -12,7 +12,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// ImportToolInput is the input for the import action.
 type ImportToolInput struct {
 	AccountID   string `json:"accountId" jsonschema:"description:Target GTM account ID"`
 	ContainerID string `json:"containerId" jsonschema:"description:Target GTM container ID"`
@@ -23,16 +22,14 @@ type ImportToolInput struct {
 	Confirm     bool   `json:"confirm,omitempty" jsonschema:"description:Must be true to actually import (safety guard)"`
 }
 
-// ImportContainerOutput is the result of an import operation.
 type ImportContainerOutput struct {
-	Success bool   `json:"success"`
-	DryRun  bool   `json:"dryRun"`
-	Message string `json:"message"`
-	Plan    *ImportPlan  `json:"plan,omitempty"`
+	Success bool          `json:"success"`
+	DryRun  bool          `json:"dryRun"`
+	Message string        `json:"message"`
+	Plan    *ImportPlan   `json:"plan,omitempty"`
 	Result  *ImportResult `json:"result,omitempty"`
 }
 
-// ImportPlan describes what would be imported.
 type ImportPlan struct {
 	Folders         int `json:"folders"`
 	Templates       int `json:"templates"`
@@ -44,22 +41,19 @@ type ImportPlan struct {
 	Total           int `json:"total"`
 }
 
-// ImportResult describes what was actually imported.
 type ImportResult struct {
-	FoldersCreated         int              `json:"foldersCreated"`
-	TemplatesCreated       int              `json:"templatesCreated"`
-	VariablesCreated       int              `json:"variablesCreated"`
-	TriggersCreated        int              `json:"triggersCreated"`
-	TagsCreated            int              `json:"tagsCreated"`
-	ClientsCreated         int              `json:"clientsCreated"`
-	TransformationsCreated int              `json:"transformationsCreated"`
-	Errors                 []string         `json:"errors,omitempty"`
+	FoldersCreated         int               `json:"foldersCreated"`
+	TemplatesCreated       int               `json:"templatesCreated"`
+	VariablesCreated       int               `json:"variablesCreated"`
+	TriggersCreated        int               `json:"triggersCreated"`
+	TagsCreated            int               `json:"tagsCreated"`
+	ClientsCreated         int               `json:"clientsCreated"`
+	TransformationsCreated int               `json:"transformationsCreated"`
+	Errors                 []string          `json:"errors,omitempty"`
 	IDMap                  map[string]string `json:"idMap,omitempty"`
 }
 
 func handleVersionImport(ctx context.Context, input VersionToolInput) (*mcp.CallToolResult, any, error) {
-	// Parse importInput from the VersionToolInput
-	// The import-specific fields are passed via the gateway Args
 	if input.WorkspaceID == "" {
 		return nil, nil, fmt.Errorf("workspaceId is required for import action")
 	}
@@ -82,31 +76,26 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		return nil, nil, fmt.Errorf("exportJson is required for import action")
 	}
 
-	// Parse the export JSON
 	var exportData map[string]interface{}
 	if err := json.Unmarshal([]byte(input.ExportJSON), &exportData); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse exportJson: %w", err)
 	}
 
-	// Extract containerVersion from the export wrapper
 	versionData, ok := getContainerVersionData(exportData)
 	if !ok {
 		return nil, nil, fmt.Errorf("exportJson must contain a 'containerVersion' object (standard GTM export format)")
 	}
 
-	// Detect or apply format normalization
 	format := input.Format
 	if format == "" || format == "auto" {
 		format = detectFormat(versionData)
 	}
 
-	// If format is "ui" (SCREAMING_CASE), convert to camelCase for API
 	if format == "ui" {
 		convertEnumsToCamelCase(versionData)
 		slog.Info("import: converted enums from SCREAMING_CASE to camelCase")
 	}
 
-	// Extract entity arrays
 	folders := extractMapArray(versionData, "folder")
 	customTemplates := extractMapArray(versionData, "customTemplate")
 	variables := extractMapArray(versionData, "variable")
@@ -126,7 +115,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		Total:           len(folders) + len(customTemplates) + len(variables) + len(triggers) + len(tags) + len(clients) + len(transformations),
 	}
 
-	// Dry-run: just return the plan
 	if input.DryRun {
 		return nil, ImportContainerOutput{
 			Success: true,
@@ -137,7 +125,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}, nil
 	}
 
-	// Safety guard
 	if !input.Confirm {
 		return nil, ImportContainerOutput{
 			Success: false,
@@ -147,7 +134,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}, nil
 	}
 
-	// Execute the import
 	client, err := getClient(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -160,7 +146,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		IDMap: make(map[string]string),
 	}
 
-	// Phase 1: Folders
 	for _, f := range folders {
 		name := getStringField(f, "name")
 		oldID := getStringField(f, "folderId")
@@ -180,7 +165,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 2: Custom Templates (before tags — tags reference template types)
 	for _, tmpl := range customTemplates {
 		name := getStringField(tmpl, "name")
 		oldID := getStringField(tmpl, "templateId")
@@ -191,7 +175,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 			continue
 		}
 
-		// Use the workspace-level template creation via GTM API
 		path := BuildWorkspacePath(input.AccountID, input.ContainerID, input.WorkspaceID)
 		tmplReq := &tagmanager.CustomTemplate{
 			Name:         name,
@@ -209,7 +192,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 3: Variables (may reference folders)
 	for _, v := range variables {
 		name := getStringField(v, "name")
 		varType := getStringField(v, "type")
@@ -227,7 +209,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 			Notes:     getStringField(v, "notes"),
 		}
 
-		// Remap parent folder
 		if parentFolderID := getStringField(v, "parentFolderId"); parentFolderID != "" {
 			if newID, ok := result.IDMap["folder:"+parentFolderID]; ok {
 				varInput.ParentFolderID = newID
@@ -245,7 +226,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 4: Triggers (may reference variables)
 	for _, tr := range triggers {
 		name := getStringField(tr, "name")
 		trigType := getStringField(tr, "type")
@@ -263,12 +243,10 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 			Notes:     getStringField(tr, "notes"),
 		}
 
-		// Extract filters
 		trigInput.Filter = extractConditions(tr, "filter")
 		trigInput.AutoEventFilter = extractConditions(tr, "autoEventFilter")
 		trigInput.CustomEventFilter = extractConditions(tr, "customEventFilter")
 
-		// Extract eventName parameter
 		if eventParam, ok := tr["eventName"].(map[string]interface{}); ok {
 			p := mapToParameter(eventParam)
 			trigInput.EventName = &p
@@ -285,7 +263,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 5: Tags (reference triggers)
 	for _, tg := range tags {
 		name := getStringField(tg, "name")
 		tagType := getStringField(tg, "type")
@@ -305,7 +282,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 			Paused:          boolPtr(getBoolField(tg, "paused")),
 		}
 
-		// Remap firing trigger IDs
 		tagInput.FiringTriggerId = remapTriggerIDs(
 			extractStringArray(tg, "firingTriggerId"),
 			result.IDMap,
@@ -326,7 +302,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 6: Clients (server-side containers only)
 	for _, cl := range clients {
 		name := getStringField(cl, "name")
 		clientType := getStringField(cl, "type")
@@ -344,7 +319,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 			Notes:     getStringField(cl, "notes"),
 		}
 
-		// Extract priority if present
 		if p, ok := cl["priority"].(float64); ok {
 			clientInput.Priority = int64(p)
 		}
@@ -360,7 +334,6 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 		}
 	}
 
-	// Phase 7: Transformations (server-side containers only)
 	for _, tr := range transformations {
 		name := getStringField(tr, "name")
 		transType := getStringField(tr, "type")
@@ -408,17 +381,10 @@ func executeImport(ctx context.Context, input ImportToolInput) (*mcp.CallToolRes
 	}, nil
 }
 
-// =============================================================================
-// Import helpers
-// =============================================================================
-
-// getContainerVersionData extracts the containerVersion from the export wrapper.
 func getContainerVersionData(exportData map[string]interface{}) (map[string]interface{}, bool) {
-	// Try standard export format: {"containerVersion": {...}}
 	if cv, ok := exportData["containerVersion"].(map[string]interface{}); ok {
 		return cv, true
 	}
-	// Maybe the root IS the container version (has "tag", "trigger" etc directly)
 	if _, hasTag := exportData["tag"]; hasTag {
 		return exportData, true
 	}
@@ -428,9 +394,7 @@ func getContainerVersionData(exportData map[string]interface{}) (map[string]inte
 	return nil, false
 }
 
-// detectFormat heuristically determines if the JSON is in UI (SCREAMING_CASE) or API (camelCase) format.
 func detectFormat(versionData map[string]interface{}) string {
-	// Check built-in variables for SCREAMING type values
 	if bivs, ok := versionData["builtInVariable"].([]interface{}); ok && len(bivs) > 0 {
 		if biv, ok := bivs[0].(map[string]interface{}); ok {
 			if t, ok := biv["type"].(string); ok {
@@ -441,7 +405,6 @@ func detectFormat(versionData map[string]interface{}) string {
 			}
 		}
 	}
-	// Check triggers
 	if triggers, ok := versionData["trigger"].([]interface{}); ok && len(triggers) > 0 {
 		if tr, ok := triggers[0].(map[string]interface{}); ok {
 			if t, ok := tr["type"].(string); ok {
@@ -452,11 +415,9 @@ func detectFormat(versionData map[string]interface{}) string {
 			}
 		}
 	}
-	// Default to api format (camelCase), which is the safer assumption
 	return "api"
 }
 
-// extractMapArray extracts an array of maps from a parent map.
 func extractMapArray(parent map[string]interface{}, key string) []map[string]interface{} {
 	arr, ok := parent[key].([]interface{})
 	if !ok {
@@ -471,7 +432,6 @@ func extractMapArray(parent map[string]interface{}, key string) []map[string]int
 	return result
 }
 
-// getStringField safely extracts a string field from a map.
 func getStringField(m map[string]interface{}, key string) string {
 	if v, ok := m[key].(string); ok {
 		return v
@@ -479,7 +439,6 @@ func getStringField(m map[string]interface{}, key string) string {
 	return ""
 }
 
-// getBoolField safely extracts a bool field from a map.
 func getBoolField(m map[string]interface{}, key string) bool {
 	if v, ok := m[key].(bool); ok {
 		return v
@@ -487,7 +446,6 @@ func getBoolField(m map[string]interface{}, key string) bool {
 	return false
 }
 
-// extractParameters extracts the parameter array from an entity map.
 func extractParameters(entity map[string]interface{}) []Parameter {
 	paramArr, ok := entity["parameter"].([]interface{})
 	if !ok {
@@ -502,14 +460,12 @@ func extractParameters(entity map[string]interface{}) []Parameter {
 	return result
 }
 
-// mapToParameter converts a generic map to a Parameter struct.
 func mapToParameter(m map[string]interface{}) Parameter {
 	p := Parameter{
 		Type:  getStringField(m, "type"),
 		Key:   getStringField(m, "key"),
 		Value: getStringField(m, "value"),
 	}
-	// Handle nested list/map parameters
 	if listArr, ok := m["list"].([]interface{}); ok {
 		for _, item := range listArr {
 			if pm, ok := item.(map[string]interface{}); ok {
@@ -527,7 +483,6 @@ func mapToParameter(m map[string]interface{}) Parameter {
 	return p
 }
 
-// extractConditions extracts condition arrays from a trigger map.
 func extractConditions(trigger map[string]interface{}, key string) []Condition {
 	condArr, ok := trigger[key].([]interface{})
 	if !ok {
@@ -546,7 +501,6 @@ func extractConditions(trigger map[string]interface{}, key string) []Condition {
 	return result
 }
 
-// extractStringArray extracts a string array from a map field.
 func extractStringArray(m map[string]interface{}, key string) []string {
 	arr, ok := m[key].([]interface{})
 	if !ok {
@@ -561,7 +515,6 @@ func extractStringArray(m map[string]interface{}, key string) []string {
 	return result
 }
 
-// remapTriggerIDs maps old trigger IDs to new ones using the ID map.
 func remapTriggerIDs(oldIDs []string, idMap map[string]string) []string {
 	if len(oldIDs) == 0 {
 		return nil
@@ -571,12 +524,10 @@ func remapTriggerIDs(oldIDs []string, idMap map[string]string) []string {
 		if newID, ok := idMap["trigger:"+oldID]; ok {
 			result = append(result, newID)
 		} else {
-			// Keep the old ID (might be a built-in trigger like "All Pages")
 			result = append(result, oldID)
 		}
 	}
 	return result
 }
 
-// Ensure tagmanager import is used (for API struct compatibility check)
 var _ = tagmanager.Tag{}

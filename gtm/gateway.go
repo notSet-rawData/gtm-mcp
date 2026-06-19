@@ -9,16 +9,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// GatewayInput is the single input type for the unified "gtm" tool.
-// It captures the resource and action, plus typed arguments that will be
-// deserialized into the appropriate resource-specific input type.
 type GatewayInput struct {
 	Resource string                 `json:"resource" jsonschema:"enum:account,container,workspace,tag,trigger,variable,folder,template,built_in_variable,client,transformation,environment,user_permission,version,destination,zone,gtag_config,templates_ref,ping,auth_status,description:The GTM resource type to operate on"`
 	Action   string                 `json:"action" jsonschema:"description:The action to perform on the resource (e.g. list, get, create, update, delete, revert). Available actions vary by resource."`
 	Args     map[string]interface{} `json:"args,omitempty" jsonschema:"description:Resource-specific parameters as a JSON object. Contents depend on the resource and action."`
 }
 
-// registerGateway registers the single unified "gtm" tool.
 func registerGateway(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "gtm",
@@ -32,7 +28,7 @@ RESOURCES & ACTIONS:
   workspace → list, create, status
   tag → list, get, create, update, delete, revert
   trigger → list, get, create, update, delete, revert
-  variable → list, get, create, update, delete, revert, add_lookup_entry, remove_lookup_entry, list_lookup_entries
+  variable → list, get, create, update, delete, revert, add_lookup_entry, remove_lookup_entry, list_lookup_entries, append_list_entry, remove_list_entry, list_entries
   folder → list, get, create, update, delete, move, audit, revert
   template → list, get, create, update, delete, import, revert
   built_in_variable → list, enable, disable, revert
@@ -105,29 +101,23 @@ OPTIMIZATION (optional, for any list action):
 	})
 }
 
-// routeGateway dispatches to the correct resource handler.
-// For "list" actions, it applies compact mode and pagination post-processing.
 func routeGateway(ctx context.Context, input GatewayInput) (*mcp.CallToolResult, any, error) {
-	// Workspace safety: warn when mutating the Default Workspace
 	if warning := workspaceSafetyWarning(input.Args, input.Action); warning != "" {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: warning}},
 		}, nil, nil
 	}
 
-	// Extract pagination/compact params before dispatching (removes them from args)
 	var listParams ListParams
 	if input.Action == "list" {
 		listParams = extractListParams(input.Args)
 	}
 
-	// Dispatch to resource handler
 	result, output, err := dispatchToResource(ctx, input)
 	if err != nil {
 		return result, output, err
 	}
 
-	// Post-process list outputs: apply compact mode + pagination
 	if input.Action == "list" && output != nil {
 		output = applyListOptimizations(output, listParams)
 	}
@@ -135,7 +125,6 @@ func routeGateway(ctx context.Context, input GatewayInput) (*mcp.CallToolResult,
 	return result, output, err
 }
 
-// dispatchToResource routes to the correct resource handler.
 func dispatchToResource(ctx context.Context, input GatewayInput) (*mcp.CallToolResult, any, error) {
 	switch input.Resource {
 	case "account":
@@ -186,13 +175,10 @@ func dispatchToResource(ctx context.Context, input GatewayInput) (*mcp.CallToolR
 	}
 }
 
-// unmarshalArgs deserializes the args map into the given typed input struct.
-// If args is nil or empty, the target struct will have zero values.
 func unmarshalArgs(args map[string]interface{}, target interface{}) error {
 	if len(args) == 0 {
 		return nil
 	}
-	// Marshal back to JSON, then unmarshal into the typed struct
 	raw, err := json.Marshal(args)
 	if err != nil {
 		return fmt.Errorf("failed to marshal args: %w", err)
@@ -200,19 +186,13 @@ func unmarshalArgs(args map[string]interface{}, target interface{}) error {
 	return json.Unmarshal(raw, target)
 }
 
-// normalizeTagAliases remaps common field name variants to the canonical names
-// expected by TagToolInput. This prevents AI clients from failing when they
-// copy field names from GET responses (which use "firingTriggerId") into
-// create/update requests (which expect "firingTriggerIds").
 func normalizeTagAliases(args map[string]interface{}) {
-	// firingTriggerId → firingTriggerIds (only if the canonical field isn't already set)
 	if _, hasCanonical := args["firingTriggerIds"]; !hasCanonical {
 		if val, hasAlias := args["firingTriggerId"]; hasAlias {
 			args["firingTriggerIds"] = val
 			delete(args, "firingTriggerId")
 		}
 	}
-	// blockingTriggerId → blockingTriggerIds
 	if _, hasCanonical := args["blockingTriggerIds"]; !hasCanonical {
 		if val, hasAlias := args["blockingTriggerId"]; hasAlias {
 			args["blockingTriggerIds"] = val
@@ -221,7 +201,6 @@ func normalizeTagAliases(args map[string]interface{}) {
 	}
 }
 
-// isMutatingAction returns true for actions that modify GTM state.
 func isMutatingAction(action string) bool {
 	switch action {
 	case "create", "update", "delete", "import", "move", "publish",
@@ -232,15 +211,11 @@ func isMutatingAction(action string) bool {
 	return false
 }
 
-// workspaceSafetyWarning checks if a mutating action is targeting the Default Workspace
-// and returns a warning message suggesting the user create a dedicated workspace.
-// Returns empty string if no warning is needed.
 func workspaceSafetyWarning(args map[string]interface{}, action string) string {
 	if !isMutatingAction(action) {
 		return ""
 	}
 	wsID, _ := args["workspaceId"].(string)
-	// GTM Default Workspace is always ID "2" (in rare cases "1")
 	if wsID == "2" || wsID == "1" {
 		return fmt.Sprintf(
 			"⚠️ WORKSPACE SAFETY: This %s operation is targeting the Default Workspace (ID: %s). "+
@@ -252,8 +227,6 @@ func workspaceSafetyWarning(args map[string]interface{}, action string) string {
 	}
 	return ""
 }
-
-// --- Resource routers ---
 
 func routeAccount(ctx context.Context, gw GatewayInput) (*mcp.CallToolResult, any, error) {
 	var input AccountToolInput
@@ -380,8 +353,14 @@ func routeVariable(ctx context.Context, gw GatewayInput) (*mcp.CallToolResult, a
 		return handleVariableRemoveLookupEntry(ctx, input)
 	case "list_lookup_entries":
 		return handleVariableListLookupEntries(ctx, input)
+	case "append_list_entry":
+		return handleVariableAppendListEntry(ctx, input)
+	case "remove_list_entry":
+		return handleVariableRemoveListEntry(ctx, input)
+	case "list_entries":
+		return handleVariableListEntries(ctx, input)
 	default:
-		return nil, nil, fmt.Errorf("unknown action %q for resource variable — valid actions: list, get, create, update, delete, revert, add_lookup_entry, remove_lookup_entry, list_lookup_entries", input.Action)
+		return nil, nil, fmt.Errorf("unknown action %q for resource variable — valid actions: list, get, create, update, delete, revert, add_lookup_entry, remove_lookup_entry, list_lookup_entries, append_list_entry, remove_list_entry, list_entries", input.Action)
 	}
 }
 
@@ -656,14 +635,10 @@ func routeTemplatesRef(ctx context.Context, gw GatewayInput) (*mcp.CallToolResul
 	}
 }
 
-// --- Ping and Auth Status (utility resources) ---
-
-// PingInput for the ping utility embedded in the gateway.
 type PingInput struct {
 	Message string `json:"message,omitempty"`
 }
 
-// PingOutput for the ping utility.
 type PingOutput struct {
 	Reply     string `json:"reply"`
 	Timestamp string `json:"timestamp"`
@@ -682,7 +657,6 @@ func routePing(ctx context.Context, gw GatewayInput) (*mcp.CallToolResult, any, 
 	return nil, PingOutput{Reply: reply, Timestamp: time.Now().UTC().Format(time.RFC3339)}, nil
 }
 
-// AuthStatusOutput for the auth_status utility.
 type AuthStatusOutput struct {
 	Authenticated bool   `json:"authenticated"`
 	Message       string `json:"message"`
@@ -699,10 +673,6 @@ func routeAuthStatus(ctx context.Context, gw GatewayInput) (*mcp.CallToolResult,
 	return nil, output, nil
 }
 
-// getTokenInfoFromContext wraps the auth package to get token info without importing auth in gateway.
-// This defers to the getClient mechanism which already handles auth internally.
 func getTokenInfoFromContext(ctx context.Context) interface{} {
-	// We use the auth package's GetTokenInfo via a thin wrapper to avoid import cycles.
-	// The actual import is in tools.go which already imports auth.
 	return getTokenInfo(ctx)
 }

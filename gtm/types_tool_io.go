@@ -6,23 +6,14 @@ import (
 	"time"
 )
 
-// =============================================================================
-// Account-level types
-// =============================================================================
-
 type ListAccountsOutput struct {
 	Accounts []Account `json:"accounts"`
 }
-
-// =============================================================================
-// Container-level types
-// =============================================================================
 
 type ListContainersOutput struct {
 	Containers []Container `json:"containers"`
 }
 
-// CreatedContainer is a simplified container response.
 type CreatedContainer struct {
 	ContainerID   string   `json:"containerId"`
 	Name          string   `json:"name"`
@@ -43,15 +34,10 @@ type DeleteContainerOutput struct {
 	Message string `json:"message"`
 }
 
-// =============================================================================
-// Workspace-level types
-// =============================================================================
-
 type ListWorkspacesOutput struct {
 	Workspaces []Workspace `json:"workspaces"`
 }
 
-// CreatedWorkspace is a simplified workspace response.
 type CreatedWorkspace struct {
 	WorkspaceID   string `json:"workspaceId"`
 	Name          string `json:"name"`
@@ -66,13 +52,14 @@ type CreateWorkspaceOutput struct {
 	Message   string           `json:"message"`
 }
 
+type DeleteWorkspaceOutput struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
 type GetWorkspaceStatusOutput struct {
 	Status WorkspaceStatus `json:"status"`
 }
-
-// =============================================================================
-// Tag types
-// =============================================================================
 
 type ListTagsOutput struct {
 	Tags []Tag `json:"tags"`
@@ -99,10 +86,6 @@ type DeleteTagOutput struct {
 	Message string `json:"message"`
 }
 
-// =============================================================================
-// Trigger types
-// =============================================================================
-
 type ListTriggersOutput struct {
 	Triggers []Trigger `json:"triggers"`
 }
@@ -127,10 +110,6 @@ type DeleteTriggerOutput struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
-
-// =============================================================================
-// Variable types
-// =============================================================================
 
 type ListVariablesOutput struct {
 	Variables []Variable `json:"variables"`
@@ -157,10 +136,6 @@ type DeleteVariableOutput struct {
 	Message string `json:"message"`
 }
 
-// =============================================================================
-// Client types (server-side containers)
-// =============================================================================
-
 type ListClientsOutput struct {
 	Clients []ClientInfo `json:"clients"`
 }
@@ -186,10 +161,6 @@ type DeleteClientOutput struct {
 	Message string `json:"message"`
 }
 
-// =============================================================================
-// Transformation types (server-side containers)
-// =============================================================================
-
 type ListTransformationsOutput struct {
 	Transformations []TransformationInfo `json:"transformations"`
 }
@@ -199,25 +170,21 @@ type GetTransformationOutput struct {
 }
 
 type CreateTransformationOutput struct {
-	Success        bool                   `json:"success"`
+	Success        bool                  `json:"success"`
 	Transformation CreatedTransformation `json:"transformation"`
-	Message        string                 `json:"message"`
+	Message        string                `json:"message"`
 }
 
 type UpdateTransformationOutput struct {
-	Success        bool                   `json:"success"`
+	Success        bool                  `json:"success"`
 	Transformation CreatedTransformation `json:"transformation"`
-	Message        string                 `json:"message"`
+	Message        string                `json:"message"`
 }
 
 type DeleteTransformationOutput struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
-
-// =============================================================================
-// Environment types
-// =============================================================================
 
 type ListEnvironmentsOutput struct {
 	Environments []Environment `json:"environments"`
@@ -244,10 +211,6 @@ type DeleteEnvironmentOutput struct {
 	Message string `json:"message"`
 }
 
-// =============================================================================
-// User Permission types
-// =============================================================================
-
 type ListUserPermissionsOutput struct {
 	Permissions []UserPermission `json:"permissions"`
 }
@@ -272,10 +235,6 @@ type DeleteUserPermissionOutput struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
-
-// =============================================================================
-// Folder types
-// =============================================================================
 
 type ListFoldersOutput struct {
 	Folders []Folder `json:"folders"`
@@ -307,7 +266,6 @@ type MoveToFolderOutput struct {
 	Message string `json:"message"`
 }
 
-// FolderAuditEntity represents an entity with its folder assignment status.
 type FolderAuditEntity struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
@@ -315,7 +273,6 @@ type FolderAuditEntity struct {
 	FolderID string `json:"folderId,omitempty"`
 }
 
-// AuditFolderStructureOutput is the output for folder audit action.
 type AuditFolderStructureOutput struct {
 	Folders          []Folder            `json:"folders"`
 	UnorganizedTags  []FolderAuditEntity `json:"unorganizedTags"`
@@ -325,15 +282,10 @@ type AuditFolderStructureOutput struct {
 	NamingConvention string              `json:"namingConvention"`
 }
 
-// =============================================================================
-// Template types
-// =============================================================================
-
 type ListTemplatesOutput struct {
 	Templates []TemplateInfo `json:"templates"`
 }
 
-// TemplateInfo is a simplified template response.
 type TemplateInfo struct {
 	TemplateID       string                `json:"templateId"`
 	Name             string                `json:"name"`
@@ -342,7 +294,6 @@ type TemplateInfo struct {
 	TagManagerUrl    string                `json:"tagManagerUrl,omitempty"`
 }
 
-// GalleryReferenceInfo contains gallery template info.
 type GalleryReferenceInfo struct {
 	Owner             string `json:"owner"`
 	Repository        string `json:"repository"`
@@ -393,10 +344,6 @@ type ImportGalleryTemplateOutput struct {
 	Message  string       `json:"message"`
 }
 
-// =============================================================================
-// Built-in Variable types
-// =============================================================================
-
 type ListBuiltInVariablesOutput struct {
 	BuiltInVariables []BuiltInVariable `json:"builtInVariables"`
 }
@@ -412,23 +359,12 @@ type DisableBuiltInVariablesOutput struct {
 	Message string `json:"message"`
 }
 
-// =============================================================================
-// Revert output (generic, used by all revert handlers)
-// =============================================================================
-
-// RevertOutput is the generic output for all revert actions.
-// Entity contains the reverted entity state (or nil if it was deleted in the latest version).
 type RevertOutput struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message"`
 	Entity  interface{} `json:"entity,omitempty"`
 }
 
-// =============================================================================
-// Version types
-// =============================================================================
-
-// VersionInfo represents a container version header for listing.
 type VersionInfo struct {
 	VersionID          string `json:"versionId"`
 	Name               string `json:"name"`
@@ -467,7 +403,6 @@ type SetLatestVersionOutput struct {
 	Message string           `json:"message"`
 }
 
-// EntityChange represents a single entity change between two versions.
 type EntityChange struct {
 	Name   string `json:"name"`
 	ID     string `json:"id"`
@@ -475,7 +410,6 @@ type EntityChange struct {
 	Change string `json:"change"` // "added", "modified", "deleted"
 }
 
-// CompareVersionsOutput is the output for compare_versions action.
 type CompareVersionsOutput struct {
 	VersionA        string         `json:"versionA"`
 	VersionB        string         `json:"versionB"`
@@ -489,7 +423,6 @@ type CompareVersionsOutput struct {
 	Summary         string         `json:"summary"`
 }
 
-// VersionDateInfo represents a version with its resolved timestamp.
 type VersionDateInfo struct {
 	VersionID   string `json:"versionId"`
 	Name        string `json:"name,omitempty"`
@@ -499,7 +432,6 @@ type VersionDateInfo struct {
 	Path        string `json:"path"`
 }
 
-// FindVersionByDateOutput is the output for find_version_by_date action.
 type FindVersionByDateOutput struct {
 	TargetDate string          `json:"targetDate"`
 	Version    VersionDateInfo `json:"version"`
@@ -507,16 +439,11 @@ type FindVersionByDateOutput struct {
 	APICalls   int             `json:"apiCalls"`
 }
 
-// ExportContainerOutput is the output for export action.
 type ExportContainerOutput struct {
 	ExportJSON json.RawMessage `json:"exportJson" jsonschema:"description:GTM container JSON export. This is the raw JSON object ready for import."`
 	Format     string          `json:"format" jsonschema:"description:Export format used: ui (SCREAMING_CASE) or api (camelCase)"`
 	Summary    string          `json:"summary"`
 }
-
-// =============================================================================
-// Template reference types
-// =============================================================================
 
 type GetTagTemplatesOutput struct {
 	Templates []TagTemplate `json:"templates"`
@@ -527,10 +454,6 @@ type GetTriggerTemplatesOutput struct {
 	Templates []TriggerTemplate `json:"templates"`
 	Usage     string            `json:"usage"`
 }
-
-// =============================================================================
-// Version comparison helpers
-// =============================================================================
 
 type namedEntity struct {
 	Name string
@@ -620,7 +543,6 @@ func folderMap(folders []Folder) map[string]namedEntity {
 	return m
 }
 
-// fingerprintToTime converts a GTM fingerprint (Unix millis as string) to time.Time.
 func fingerprintToTime(fp string) (time.Time, error) {
 	millis, err := strconv.ParseInt(fp, 10, 64)
 	if err != nil {

@@ -8,20 +8,15 @@ import (
 	"time"
 )
 
-// TestIntegration_MetadataAndMiddleware401_Consistency verifies that the
-// authorization_endpoint and token_endpoint returned in 401 responses match
-// those in the metadata endpoint response.
 func TestIntegration_MetadataAndMiddleware401_Consistency(t *testing.T) {
 	baseURL := "https://mcp.notset.es"
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	// Both use nil resolver — static URLs
-	metaHandler := MetadataHandler(baseURL, nil)
-	mw := Middleware(store, nil, logger, baseURL, 1*time.Hour, nil)
+	metaHandler := MetadataHandler(baseURL, nil, false)
+	mw := Middleware(store, nil, nil, nil, logger, baseURL, 1*time.Hour, nil)
 	protectedHandler := mw(dummyHandler)
 
-	// Fetch metadata
 	metaReq := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server", nil)
 	metaW := httptest.NewRecorder()
 	metaHandler.ServeHTTP(metaW, metaReq)
@@ -29,7 +24,6 @@ func TestIntegration_MetadataAndMiddleware401_Consistency(t *testing.T) {
 	var meta OAuthMetadata
 	json.NewDecoder(metaW.Body).Decode(&meta)
 
-	// Make unauthenticated request to get 401
 	authReq := httptest.NewRequest(http.MethodGet, "/", nil)
 	authW := httptest.NewRecorder()
 	protectedHandler.ServeHTTP(authW, authReq)
@@ -41,7 +35,6 @@ func TestIntegration_MetadataAndMiddleware401_Consistency(t *testing.T) {
 	var errResp map[string]string
 	json.NewDecoder(authW.Body).Decode(&errResp)
 
-	// The 401 response endpoints must match the metadata
 	if errResp["authorization_endpoint"] != meta.AuthorizationEndpoint {
 		t.Errorf("401 authorization_endpoint %q != metadata %q",
 			errResp["authorization_endpoint"], meta.AuthorizationEndpoint)
@@ -52,23 +45,19 @@ func TestIntegration_MetadataAndMiddleware401_Consistency(t *testing.T) {
 	}
 }
 
-// TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver verifies
-// consistency when using a URLResolver with an allowed host.
 func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing.T) {
 	baseURL := "https://mcp.notset.es"
 	resolver := NewURLResolver(baseURL, []string{"gtm-mcp:8080"})
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	metaHandler := MetadataHandler(baseURL, resolver)
+	metaHandler := MetadataHandler(baseURL, resolver, false)
 	resHandler := ProtectedResourceMetadataHandler(baseURL, baseURL, resolver)
-	mw := Middleware(store, nil, logger, baseURL, 1*time.Hour, resolver)
+	mw := Middleware(store, nil, nil, nil, logger, baseURL, 1*time.Hour, resolver)
 	protectedHandler := mw(dummyHandler)
 
-	// Test with the allowed Docker host
 	host := "gtm-mcp:8080"
 
-	// Fetch auth server metadata
 	metaReq := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server", nil)
 	metaReq.Host = host
 	metaW := httptest.NewRecorder()
@@ -81,7 +70,6 @@ func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing
 		t.Errorf("issuer = %q, want http://gtm-mcp:8080", meta.Issuer)
 	}
 
-	// Fetch protected resource metadata
 	resReq := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource", nil)
 	resReq.Host = host
 	resW := httptest.NewRecorder()
@@ -90,7 +78,6 @@ func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing
 	var resMeta ProtectedResourceMetadata
 	json.NewDecoder(resW.Body).Decode(&resMeta)
 
-	// Resource should have trailing slash, auth server should not
 	if resMeta.Resource != "http://gtm-mcp:8080/" {
 		t.Errorf("resource = %q, want http://gtm-mcp:8080/", resMeta.Resource)
 	}
@@ -98,12 +85,10 @@ func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing
 		t.Errorf("authorization_servers = %v, want [http://gtm-mcp:8080]", resMeta.AuthorizationServers)
 	}
 
-	// Issuer must match authorization_servers[0]
 	if meta.Issuer != resMeta.AuthorizationServers[0] {
 		t.Errorf("issuer %q != authorization_servers[0] %q", meta.Issuer, resMeta.AuthorizationServers[0])
 	}
 
-	// Make unauthenticated request with same host to get 401
 	authReq := httptest.NewRequest(http.MethodGet, "/", nil)
 	authReq.Host = host
 	authW := httptest.NewRecorder()
@@ -112,7 +97,6 @@ func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing
 	var errResp map[string]string
 	json.NewDecoder(authW.Body).Decode(&errResp)
 
-	// 401 endpoints must match metadata endpoints
 	if errResp["authorization_endpoint"] != meta.AuthorizationEndpoint {
 		t.Errorf("401 authorization_endpoint %q != metadata %q",
 			errResp["authorization_endpoint"], meta.AuthorizationEndpoint)
@@ -122,7 +106,6 @@ func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing
 			errResp["token_endpoint"], meta.TokenEndpoint)
 	}
 
-	// WWW-Authenticate resource_metadata URL should also use the resolved host
 	wwwAuth := authW.Header().Get("WWW-Authenticate")
 	expectedResourceMeta := `resource_metadata="http://gtm-mcp:8080/.well-known/oauth-protected-resource"`
 	if !containsSubstr(wwwAuth, expectedResourceMeta) {
@@ -130,8 +113,6 @@ func TestIntegration_MetadataAndMiddleware401_ConsistencyWithResolver(t *testing
 	}
 }
 
-// TestIntegration_UntrustedHostDoesNotLeakIntoResponses ensures that an
-// untrusted Host header never appears in any response.
 func TestIntegration_UntrustedHostDoesNotLeakIntoResponses(t *testing.T) {
 	baseURL := "https://mcp.notset.es"
 	resolver := NewURLResolver(baseURL, nil)
@@ -139,9 +120,9 @@ func TestIntegration_UntrustedHostDoesNotLeakIntoResponses(t *testing.T) {
 	logger := testLogger()
 
 	handlers := map[string]http.Handler{
-		"metadata":           MetadataHandler(baseURL, resolver),
+		"metadata":           MetadataHandler(baseURL, resolver, false),
 		"protected_resource": ProtectedResourceMetadataHandler(baseURL, baseURL, resolver),
-		"middleware_401":     Middleware(store, nil, logger, baseURL, 1*time.Hour, resolver)(dummyHandler),
+		"middleware_401":     Middleware(store, nil, nil, nil, logger, baseURL, 1*time.Hour, resolver)(dummyHandler),
 	}
 
 	for name, handler := range handlers {
@@ -158,7 +139,6 @@ func TestIntegration_UntrustedHostDoesNotLeakIntoResponses(t *testing.T) {
 				t.Errorf("response body contains untrusted host 'evil.com': %s", body)
 			}
 
-			// Check all headers too
 			for key, values := range w.Header() {
 				for _, v := range values {
 					if containsSubstr(v, "evil.com") {
@@ -170,13 +150,10 @@ func TestIntegration_UntrustedHostDoesNotLeakIntoResponses(t *testing.T) {
 	}
 }
 
-// TestIntegration_ResourceMetadata_GeminiCLICompatibility simulates the exact
-// validation Gemini CLI performs: new URL(serverUrl).pathname produces "/" for
-// root URLs, so the expected resource is scheme + "://" + host + "/".
 func TestIntegration_ResourceMetadata_GeminiCLICompatibility(t *testing.T) {
 	tests := []struct {
-		name        string
-		baseURL     string
+		name         string
+		baseURL      string
 		wantResource string
 	}{
 		{

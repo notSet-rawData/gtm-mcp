@@ -15,7 +15,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// mockTokenStore implements TokenStore for testing middleware.
 type mockTokenStore struct {
 	tokens map[string]*TokenInfo
 }
@@ -72,19 +71,18 @@ func (m *mockTokenStore) UpdateGoogleToken(accessToken string, googleToken *oaut
 	return nil
 }
 
-func (m *mockTokenStore) StoreState(state *AuthState) error          { return nil }
-func (m *mockTokenStore) GetState(stateValue string) (*AuthState, error)     { return nil, ErrInvalidState }
-func (m *mockTokenStore) ConsumeState(stateValue string) (*AuthState, error) { return nil, ErrInvalidState }
-func (m *mockTokenStore) DeleteState(stateValue string) error        { return nil }
-func (m *mockTokenStore) StoreClient(client *ClientInfo) error       { return nil }
+func (m *mockTokenStore) StoreState(state *AuthState) error              { return nil }
+func (m *mockTokenStore) GetState(stateValue string) (*AuthState, error) { return nil, ErrInvalidState }
+func (m *mockTokenStore) ConsumeState(stateValue string) (*AuthState, error) {
+	return nil, ErrInvalidState
+}
+func (m *mockTokenStore) DeleteState(stateValue string) error  { return nil }
+func (m *mockTokenStore) StoreClient(client *ClientInfo) error { return nil }
 func (m *mockTokenStore) GetClient(clientID string) (*ClientInfo, error) {
 	return nil, ErrClientNotFound
 }
 func (m *mockTokenStore) DeleteClient(clientID string) error { return nil }
 
-// mockGoogleProvider wraps GoogleProvider for testing. Since GoogleProvider
-// is a concrete struct, we test the middleware with a real GoogleProvider
-// that's configured to hit a test server.
 func newTestGoogleProvider(tokenServerURL string) *GoogleProvider {
 	return &GoogleProvider{
 		config: &oauth2.Config{
@@ -101,7 +99,6 @@ func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 }
 
-// dummyHandler is a simple handler that returns 200 OK.
 var dummyHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	tokenInfo := GetTokenInfo(r.Context())
 	if tokenInfo != nil {
@@ -127,7 +124,7 @@ func TestMiddleware_ValidToken(t *testing.T) {
 	}
 	store.StoreToken(token)
 
-	mw := Middleware(store, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, nil, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -148,7 +145,7 @@ func TestMiddleware_MissingAuthHeader(t *testing.T) {
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	mw := Middleware(store, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, nil, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -177,7 +174,7 @@ func TestMiddleware_InvalidFormat(t *testing.T) {
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	mw := Middleware(store, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, nil, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -195,7 +192,7 @@ func TestMiddleware_TokenNotFound(t *testing.T) {
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	mw := Middleware(store, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, nil, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -213,7 +210,6 @@ func TestMiddleware_ExpiredToken_AutoRefreshSuccess(t *testing.T) {
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	// Set up a fake Google token endpoint
 	googleTokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -227,11 +223,10 @@ func TestMiddleware_ExpiredToken_AutoRefreshSuccess(t *testing.T) {
 
 	google := newTestGoogleProvider(googleTokenServer.URL)
 
-	// Store an expired token with a valid refresh token
 	token := &TokenInfo{
-		AccessToken:  "expired-token",
-		RefreshToken: "our-refresh-token",
-		ExpiresAt:    time.Now().Add(-1 * time.Hour), // Expired
+		AccessToken:      "expired-token",
+		RefreshToken:     "our-refresh-token",
+		ExpiresAt:        time.Now().Add(-1 * time.Hour),      // Expired
 		RefreshExpiresAt: time.Now().Add(30 * 24 * time.Hour), // Valid
 		GoogleToken: &oauth2.Token{
 			AccessToken:  "old-google-access",
@@ -243,7 +238,7 @@ func TestMiddleware_ExpiredToken_AutoRefreshSuccess(t *testing.T) {
 	}
 	store.StoreToken(token)
 
-	mw := Middleware(store, google, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, google, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -256,13 +251,11 @@ func TestMiddleware_ExpiredToken_AutoRefreshSuccess(t *testing.T) {
 		t.Errorf("expected status 200 after auto-refresh, got %d", w.Code)
 	}
 
-	// The old token should be deleted
 	_, err := store.GetTokenByAccessIncludeExpired("expired-token")
 	if !errors.Is(err, ErrTokenNotFound) {
 		t.Error("expected old token to be deleted after refresh")
 	}
 
-	// A new token should exist in the store
 	found := false
 	for _, ti := range store.tokens {
 		if ti.ClientID == "test-client" && ti.GoogleToken.AccessToken == "new-google-access" {
@@ -279,21 +272,19 @@ func TestMiddleware_ExpiredToken_NoRefreshToken(t *testing.T) {
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	// Expired token without refresh token
 	token := &TokenInfo{
 		AccessToken:  "expired-no-refresh",
 		RefreshToken: "", // No refresh token
 		ExpiresAt:    time.Now().Add(-1 * time.Hour),
 		GoogleToken: &oauth2.Token{
 			AccessToken: "old-google",
-			// No RefreshToken
 		},
 		ClientID:  "test-client",
 		CreatedAt: time.Now(),
 	}
 	store.StoreToken(token)
 
-	mw := Middleware(store, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, nil, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -306,7 +297,6 @@ func TestMiddleware_ExpiredToken_NoRefreshToken(t *testing.T) {
 		t.Errorf("expected status 401, got %d", w.Code)
 	}
 
-	// Should have Retry-After header since token is expired
 	if w.Header().Get("Retry-After") != "0" {
 		t.Errorf("expected Retry-After header for expired token")
 	}
@@ -330,7 +320,7 @@ func TestMiddleware_ExpiredToken_ExpiredRefreshToken(t *testing.T) {
 	}
 	store.StoreToken(token)
 
-	mw := Middleware(store, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, nil, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -348,7 +338,6 @@ func TestMiddleware_ExpiredToken_GoogleRefreshFails(t *testing.T) {
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	// Set up a Google token endpoint that returns an error
 	googleTokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -375,7 +364,7 @@ func TestMiddleware_ExpiredToken_GoogleRefreshFails(t *testing.T) {
 	}
 	store.StoreToken(token)
 
-	mw := Middleware(store, google, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, google, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -449,7 +438,7 @@ func TestMiddleware_ErrorResponseFormat(t *testing.T) {
 	store := newMockTokenStore()
 	logger := testLogger()
 
-	mw := Middleware(store, nil, logger, "https://mcp.notset.es", 1*time.Hour, nil)
+	mw := Middleware(store, nil, nil, nil, logger, "https://mcp.notset.es", 1*time.Hour, nil)
 	handler := mw(dummyHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -457,7 +446,6 @@ func TestMiddleware_ErrorResponseFormat(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	// Check WWW-Authenticate header
 	wwwAuth := w.Header().Get("WWW-Authenticate")
 	if wwwAuth == "" {
 		t.Error("expected WWW-Authenticate header")
@@ -466,12 +454,10 @@ func TestMiddleware_ErrorResponseFormat(t *testing.T) {
 		t.Error("expected resource_metadata in WWW-Authenticate header")
 	}
 
-	// Check Content-Type
 	if w.Header().Get("Content-Type") != "application/json" {
 		t.Errorf("expected Content-Type application/json, got %q", w.Header().Get("Content-Type"))
 	}
 
-	// Check JSON body
 	var resp map[string]string
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response body: %v", err)
@@ -523,7 +509,7 @@ func TestMiddleware_ContextValues(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	mw := Middleware(store, google, logger, "http://localhost:8080", 1*time.Hour, nil)
+	mw := Middleware(store, google, nil, nil, logger, "http://localhost:8080", 1*time.Hour, nil)
 	handler := mw(captureHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -536,7 +522,6 @@ func TestMiddleware_ContextValues(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	// Verify all context values are set
 	tokenInfo := GetTokenInfo(capturedCtx)
 	if tokenInfo == nil || tokenInfo.ClientID != "ctx-client" {
 		t.Error("expected TokenInfo in context")

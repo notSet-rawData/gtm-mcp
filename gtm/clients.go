@@ -7,7 +7,6 @@ import (
 	tagmanager "google.golang.org/api/tagmanager/v2"
 )
 
-// ListClients returns all clients in a workspace (server-side containers only).
 func (c *Client) ListClients(ctx context.Context, accountID, containerID, workspaceID string) ([]ClientInfo, error) {
 	parent := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s", accountID, containerID, workspaceID)
 
@@ -24,7 +23,6 @@ func (c *Client) ListClients(ctx context.Context, accountID, containerID, worksp
 	return toClients(resp.Client), nil
 }
 
-// GetClient returns a specific client by ID.
 func (c *Client) GetClient(ctx context.Context, accountID, containerID, workspaceID, clientID string) (*ClientInfo, error) {
 	path := fmt.Sprintf("accounts/%s/containers/%s/workspaces/%s/clients/%s",
 		accountID, containerID, workspaceID, clientID)
@@ -40,7 +38,6 @@ func (c *Client) GetClient(ctx context.Context, accountID, containerID, workspac
 	return &result, nil
 }
 
-// CreateClient creates a new client in the workspace.
 func (c *Client) CreateClient(ctx context.Context, accountID, containerID, workspaceID string, input *ClientInput) (*CreatedClient, error) {
 	parent := BuildWorkspacePath(accountID, containerID, workspaceID)
 
@@ -66,15 +63,12 @@ func (c *Client) CreateClient(ctx context.Context, accountID, containerID, works
 	}, nil
 }
 
-// UpdateClient updates an existing client. It fetches the current client first to get the fingerprint.
-// Fields not provided in input are preserved from the current client.
 func (c *Client) UpdateClient(ctx context.Context, path string, input *ClientInput) (*CreatedClient, error) {
 	current, err := c.Service.Accounts.Containers.Workspaces.Clients.Get(path).Context(ctx).Do()
 	if err != nil {
 		return nil, mapGoogleError(err)
 	}
 
-	// Preserve existing fields when not provided in input
 	params := toAPIParams(input.Parameter)
 	if params == nil {
 		params = current.Parameter
@@ -110,7 +104,6 @@ func (c *Client) UpdateClient(ctx context.Context, path string, input *ClientInp
 	}, nil
 }
 
-// DeleteClient deletes a client from the workspace.
 func (c *Client) DeleteClient(ctx context.Context, path string) error {
 	err := c.Service.Accounts.Containers.Workspaces.Clients.Delete(path).Context(ctx).Do()
 	return mapGoogleError(err)
