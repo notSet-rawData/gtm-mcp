@@ -56,7 +56,7 @@ If you are a serious Data Agency, an Enterprise, or just someone who hates re-au
 | **Agent Autonomy** | Good for punctual tasks | Uninterrupted 24/7 background CRONs |
 | **Multi-layer Governance**| ❌ None | ✅ Centralized Dashboard (Team Management) |
 | **Advanced Audits** | ❌ Basic CRUD | ✅ Journey Simulation, Consent validation, PII detection |
-| **Browser Execution** | ❌ None | ✅ Local Chrome & Anti-detect Cloud Browser (Camoufox) |
+| **Browser Execution** | ❌ None | ✅ Advanced Stealth Cloud Browsers & Local CDP |
 
 **👉 Interested in the Enterprise Pro version?** 
 Contact me directly at [raul@measuremesh.io](mailto:raul@measuremesh.io) or [raul.fernandez@notset.es](mailto:raul.fernandez@notset.es) to discuss your needs.
