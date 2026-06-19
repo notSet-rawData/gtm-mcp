@@ -47,7 +47,7 @@ If you are a serious Data Agency, an Enterprise, or just someone who hates re-au
 
 | Feature | Community Tier | ✨ Enterprise Pro |
 | --- | --- | --- |
-| **GTM Capabilities** | Full Access | Full Access |
+| **GTM Capabilities** | Standard CRUD | ✅ Full Access + Blueprint/SDR & Migrations |
 | **GA4 Capabilities** | ❌ None | ✅ Full Access |
 | **GTM ↔ GA4 Cross-Audit** | ❌ None | ✅ Automated Gap Analysis & Orphan Detection |
 | **Property Replication** | ❌ None | ✅ 1-Click Clone GA4 Configurations |
