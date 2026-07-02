@@ -58,19 +58,24 @@ func Middleware(
 
 			accessToken := parts[1]
 
-			if tokenInfo, err := tryOAuthToken(r.Context(), store, google, logger, accessToken, baseURL, accessTokenTTL); err == nil {
-				ctx := context.WithValue(r.Context(), TokenInfoKey, tokenInfo)
-				ctx = context.WithValue(ctx, GoogleTokenKey, tokenInfo.GoogleToken)
-				ctx = context.WithValue(ctx, TokenStoreKey, store)
-				ctx = context.WithValue(ctx, GoogleProviderKey, google)
-				ctx = context.WithValue(ctx, AuthMethodKey, AuthMethodOAuth)
+			var authErr error
+			if store != nil {
+				if tokenInfo, err := tryOAuthToken(r.Context(), store, google, logger, accessToken, baseURL, accessTokenTTL); err == nil {
+					ctx := context.WithValue(r.Context(), TokenInfoKey, tokenInfo)
+					ctx = context.WithValue(ctx, GoogleTokenKey, tokenInfo.GoogleToken)
+					ctx = context.WithValue(ctx, TokenStoreKey, store)
+					ctx = context.WithValue(ctx, GoogleProviderKey, google)
+					ctx = context.WithValue(ctx, AuthMethodKey, AuthMethodOAuth)
 
-				logger.Debug("authenticated request",
-					"method", string(AuthMethodOAuth),
-					"client_id", tokenInfo.ClientID,
-				)
-				next.ServeHTTP(w, r.WithContext(ctx))
-				return
+					logger.Debug("authenticated request",
+						"method", string(AuthMethodOAuth),
+						"client_id", tokenInfo.ClientID,
+					)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				} else {
+					authErr = err
+				}
 			}
 
 			if saProvider != nil && saValidator != nil && isLikelyJWT(accessToken) {
@@ -88,6 +93,10 @@ func Middleware(
 					)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
+				} else {
+					if authErr == nil {
+						authErr = err
+					}
 				}
 			}
 
@@ -95,7 +104,12 @@ func Middleware(
 				"reason", "invalid_token",
 				"token_prefix", truncateToken(accessToken),
 			)
-			unauthorized(w, effectiveURL, "Invalid token")
+
+			errMsg := "Invalid token"
+			if authErr != nil && strings.Contains(strings.ToLower(authErr.Error()), "expired") {
+				errMsg = authErr.Error()
+			}
+			unauthorized(w, effectiveURL, errMsg)
 		})
 	}
 }
@@ -161,6 +175,9 @@ func tryAutoRefresh(ctx context.Context, store TokenStore, google *GoogleProvide
 }
 
 func tryOAuthToken(ctx context.Context, store TokenStore, google *GoogleProvider, logger *slog.Logger, accessToken string, baseURL string, accessTokenTTL time.Duration) (*TokenInfo, error) {
+	if store == nil {
+		return nil, fmt.Errorf("OAuth not configured on this server")
+	}
 	tokenInfo, err := store.GetTokenByAccess(accessToken)
 	if err == nil {
 		return tokenInfo, nil

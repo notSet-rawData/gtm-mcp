@@ -189,33 +189,37 @@ Resources & actions:
 
 	var authServer *auth.Server
 	var tokenStore auth.TokenStore
+	var googleProvider *auth.GoogleProvider
+	var saProvider *serviceauth.Provider
+	var saValidator *serviceauth.Validator
+
 	oauthConfigured := cfg.ValidateAuth() == nil
+	saConfigured := cfg.IsServiceAccountEnabled()
 
 	oauthLimiter := middleware.NewRateLimiter(10, 20)  // 10 req/s, burst 20
 	registerLimiter := middleware.NewRateLimiter(2, 5) // 2 req/s, burst 5
 	mcpLimiter := middleware.NewRateLimiter(30, 50)    // 30 req/s, burst 50
 
-	if oauthConfigured {
-		encryptionKey := auth.DeriveKey(cfg.JWTSecret)
-		var err error
-		tokenStore, err = store.NewSQLiteTokenStore("data/gtm-tokens.db", encryptionKey)
-		if err != nil {
-			logger.Error("failed to initialize sqlite token store", "error", err)
-			os.Exit(1)
+	if oauthConfigured || saConfigured {
+		if oauthConfigured {
+			encryptionKey := auth.DeriveKey(cfg.JWTSecret)
+			var err error
+			tokenStore, err = store.NewSQLiteTokenStore("data/gtm-tokens.db", encryptionKey)
+			if err != nil {
+				logger.Error("failed to initialize sqlite token store", "error", err)
+				os.Exit(1)
+			}
+
+			googleProvider = auth.NewGoogleProvider(
+				cfg.GoogleClientID,
+				cfg.GoogleClientSecret,
+				cfg.BaseURL+"/oauth/callback",
+				cfg.GoogleScopes...,
+			)
+			authServer = auth.NewServer(cfg.BaseURL, googleProvider, tokenStore, logger, cfg.AccessTokenTTL, cfg.AllowedDCRDomains...)
 		}
 
-		googleProvider := auth.NewGoogleProvider(
-			cfg.GoogleClientID,
-			cfg.GoogleClientSecret,
-			cfg.BaseURL+"/oauth/callback",
-			cfg.GoogleScopes...,
-		)
-		authServer = auth.NewServer(cfg.BaseURL, googleProvider, tokenStore, logger, cfg.AccessTokenTTL, cfg.AllowedDCRDomains...)
-
-		var saProvider *serviceauth.Provider
-		var saValidator *serviceauth.Validator
-
-		if cfg.IsServiceAccountEnabled() {
+		if saConfigured {
 			var saErr error
 			saProvider, saErr = serviceauth.NewProviderFromEnv(cfg.GoogleScopes, logger)
 			if saErr != nil {
@@ -240,7 +244,9 @@ Resources & actions:
 					Audience:   cfg.ServiceAccountAudienceOrDefault(),
 				})
 
-				authServer.WithServiceAccount(saProvider, saValidator)
+				if authServer != nil {
+					authServer.WithServiceAccount(saProvider, saValidator)
+				}
 
 				logger.Info("service account authentication enabled",
 					"service_account", saProvider.Email(),
@@ -252,25 +258,41 @@ Resources & actions:
 			}
 		}
 
-		mux.HandleFunc("GET /authorize", oauthLimiter.MiddlewareFunc(authServer.AuthorizeHandler))
-		mux.HandleFunc("GET /oauth/callback", oauthLimiter.MiddlewareFunc(authServer.CallbackHandler))
-		mux.HandleFunc("POST /token", oauthLimiter.MiddlewareFunc(middleware.MaxBytesMiddleware(1<<20, authServer.TokenHandler)))
-		mux.HandleFunc("POST /register", registerLimiter.MiddlewareFunc(middleware.MaxBytesMiddleware(1<<20, authServer.RegistrationHandler)))
+		if oauthConfigured {
+			mux.HandleFunc("GET /authorize", oauthLimiter.MiddlewareFunc(authServer.AuthorizeHandler))
+			mux.HandleFunc("GET /oauth/callback", oauthLimiter.MiddlewareFunc(authServer.CallbackHandler))
+			mux.HandleFunc("POST /token", oauthLimiter.MiddlewareFunc(middleware.MaxBytesMiddleware(1<<20, authServer.TokenHandler)))
+			mux.HandleFunc("POST /register", registerLimiter.MiddlewareFunc(middleware.MaxBytesMiddleware(1<<20, authServer.RegistrationHandler)))
+
+			logger.Info("OAuth configured",
+				"authorize_endpoint", cfg.BaseURL+"/authorize",
+				"token_endpoint", cfg.BaseURL+"/token",
+				"callback_endpoint", cfg.BaseURL+"/oauth/callback",
+				"register_endpoint", cfg.BaseURL+"/register",
+				"protected_resource_metadata", cfg.BaseURL+"/.well-known/oauth-protected-resource",
+				"authorization_server_metadata", cfg.BaseURL+"/.well-known/oauth-authorization-server",
+			)
+		} else {
+			logger.Info("OAuth not configured, starting with Service Account only")
+			oauthNotConfiguredHandler := func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error":             "server_error",
+					"error_description": "OAuth is not configured on this server.",
+				})
+			}
+			mux.HandleFunc("GET /authorize", oauthLimiter.MiddlewareFunc(oauthNotConfiguredHandler))
+			mux.HandleFunc("GET /oauth/callback", oauthLimiter.MiddlewareFunc(oauthNotConfiguredHandler))
+			mux.HandleFunc("POST /token", oauthLimiter.MiddlewareFunc(oauthNotConfiguredHandler))
+			mux.HandleFunc("POST /register", registerLimiter.MiddlewareFunc(oauthNotConfiguredHandler))
+		}
 
 		authMiddleware := auth.Middleware(tokenStore, googleProvider, saProvider, saValidator, logger, cfg.BaseURL, cfg.AccessTokenTTL, urlResolver)
 		mux.Handle("/", mcpLimiter.Middleware(authMiddleware(maxBytesHandler(5<<20, mcpHandler))))
 
-		logger.Info("OAuth configured",
-			"authorize_endpoint", cfg.BaseURL+"/authorize",
-			"token_endpoint", cfg.BaseURL+"/token",
-			"callback_endpoint", cfg.BaseURL+"/oauth/callback",
-			"register_endpoint", cfg.BaseURL+"/register",
-			"protected_resource_metadata", cfg.BaseURL+"/.well-known/oauth-protected-resource",
-			"authorization_server_metadata", cfg.BaseURL+"/.well-known/oauth-authorization-server",
-			"service_account_enabled", cfg.IsServiceAccountEnabled(),
-		)
 	} else {
-		logger.Warn("OAuth not configured, running without authentication", "error", cfg.ValidateAuth())
+		logger.Warn("No authentication configured (OAuth and SA missing), running without authentication", "oauth_error", cfg.ValidateAuth())
 
 		oauthNotConfiguredHandler := func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
